@@ -1,0 +1,18 @@
+{
+  "name": "imc",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev -w @imc/api",
+    "dev:web": "npm run dev -w @imc/web",
+    "build": "npm run build -w @imc/shared && npm run build -w @imc/api && npm run build -w @imc/web",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

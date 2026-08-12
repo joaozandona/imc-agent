@@ -1,6 +1,7 @@
 import { Request, Response } from 'express'
-import { LoginService } from '../services/login-service'
+import { sendError } from '../errors/send-error'
 import { loginSchema } from '../schemas/login-schema'
+import { LoginService } from '../services/login-service'
 
 export class LoginController {
   private loginService = new LoginService()
@@ -10,7 +11,8 @@ export class LoginController {
 
     if (!parsed.success) {
       return res.status(400).json({
-        message: 'Dados inválidos',
+        code: 'VALIDATION_ERROR',
+        message: 'Invalid request data',
         issues: parsed.error.issues,
       })
     }
@@ -19,17 +21,7 @@ export class LoginController {
       const result = await this.loginService.login(parsed.data)
       return res.json(result)
     } catch (error) {
-      const code = error instanceof Error ? error.message : 'Unexpected error'
-
-      if (code === 'Inactive user') {
-        return res.status(403).json({ message: 'Usuário inativo' })
-      }
-
-      if (code === 'JWT_SECRET is not configured') {
-        return res.status(500).json({ message: 'Erro de configuração do servidor' })
-      }
-
-      return res.status(401).json({ message: 'Credenciais inválidas' })
+      return sendError(res, error)
     }
   }
 

@@ -12,19 +12,28 @@ export function ensureAuthenticated(req: Request, res: Response, next: NextFunct
   const header = req.headers.authorization
 
   if (!header) {
-    return res.status(401).json({ message: 'Token não informado' })
+    return res.status(401).json({
+      code: 'TOKEN_MISSING',
+      message: 'Authorization token was not provided',
+    })
   }
 
   const [scheme, token] = header.split(' ')
 
   if (scheme !== 'Bearer' || !token) {
-    return res.status(401).json({ message: 'Token inválido' })
+    return res.status(401).json({
+      code: 'TOKEN_INVALID',
+      message: 'Authorization token format is invalid',
+    })
   }
 
   const secret = process.env.JWT_SECRET
 
   if (!secret) {
-    return res.status(500).json({ message: 'Erro de configuração do servidor' })
+    return res.status(500).json({
+      code: 'SERVER_MISCONFIGURED',
+      message: 'JWT secret is not configured',
+    })
   }
 
   try {
@@ -38,6 +47,9 @@ export function ensureAuthenticated(req: Request, res: Response, next: NextFunct
 
     return next()
   } catch {
-    return res.status(401).json({ message: 'Token inválido ou expirado' })
+    return res.status(401).json({
+      code: 'TOKEN_INVALID',
+      message: 'Authorization token is invalid or expired',
+    })
   }
 }

@@ -1,4 +1,5 @@
 import { AppDataSource } from '../database/data-source'
+import { Assessment } from '../database/entities/Assessment'
 import { User, UserPerfil, UserSituacao } from '../database/entities/User'
 import { AppError } from '../errors/app-error'
 import { CreateUserData, UpdateUserData } from '../schemas/user-schema'
@@ -19,6 +20,7 @@ function toListUser(user: User) {
 
 export class UserService {
   private users = AppDataSource.getRepository(User)
+  private assessments = AppDataSource.getRepository(Assessment)
   private loginService = new LoginService()
 
   async list(currentUser: CurrentUser) {
@@ -122,8 +124,10 @@ export class UserService {
     await this.users.remove(user)
   }
 
-  private async countLinkedAssessments(_userId: string) {
-    return 0
+  private async countLinkedAssessments(userId: string) {
+    return this.assessments.count({
+      where: [{ idUsuarioAluno: userId }, { idUsuarioAvaliacao: userId }],
+    })
   }
 
   private assertCanRead(currentUser: CurrentUser, user: User) {

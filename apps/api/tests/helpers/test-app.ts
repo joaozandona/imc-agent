@@ -1,4 +1,5 @@
 import { AppDataSource } from '../../src/database/data-source'
+import { Assessment } from '../../src/database/entities/Assessment'
 import { User, UserPerfil, UserSituacao } from '../../src/database/entities/User'
 import { UserToken } from '../../src/database/entities/UserToken'
 import { LoginService } from '../../src/services/login-service'
@@ -19,9 +20,11 @@ export async function closeTestDatabase() {
 }
 
 export async function clearDatabase() {
+  const assessments = AppDataSource.getRepository(Assessment)
   const tokens = AppDataSource.getRepository(UserToken)
   const users = AppDataSource.getRepository(User)
 
+  await assessments.clear()
   await tokens.clear()
   await users.clear()
 }

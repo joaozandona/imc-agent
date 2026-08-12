@@ -8,7 +8,7 @@ export const AppDataSource = new DataSource({
   type: 'better-sqlite3',
   database: process.env.DB_PATH || './data/imc.sqlite',
   entities: [User, UserToken],
-  migrations: ['src/database/migrations/*.{ts,js}'],
-  synchronize: false,
-  logging: true,
+  migrations: process.env.NODE_ENV === 'test' ? [] : ['src/database/migrations/*.{ts,js}'],
+  synchronize: process.env.NODE_ENV === 'test',
+  logging: process.env.NODE_ENV !== 'test',
 })

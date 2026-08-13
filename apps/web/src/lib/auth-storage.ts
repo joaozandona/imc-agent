@@ -1,10 +1,4 @@
-export type AuthUser = {
-  id: string
-  name: string
-  username: string
-  role: 'admin' | 'professor' | 'aluno'
-  status: 'ativo' | 'inativo'
-}
+import type { User } from '@/types/user'
 
 export type AuthTokens = {
   accessToken: string
@@ -29,20 +23,20 @@ export function getRefreshToken() {
   return localStorage.getItem(REFRESH_TOKEN_KEY)
 }
 
-export function getStoredUser(): AuthUser | null {
+export function getStoredUser(): User | null {
   if (!canUseStorage()) return null
 
   const raw = localStorage.getItem(USER_KEY)
   if (!raw) return null
 
   try {
-    return JSON.parse(raw) as AuthUser
+    return JSON.parse(raw) as User
   } catch {
     return null
   }
 }
 
-export function setAuthSession(tokens: AuthTokens, user: AuthUser) {
+export function setAuthSession(tokens: AuthTokens, user: User) {
   localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken)
   localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken)
   localStorage.setItem(USER_KEY, JSON.stringify(user))

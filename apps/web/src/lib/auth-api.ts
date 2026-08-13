@@ -1,14 +1,14 @@
 import { api } from './api'
 import {
   AuthTokens,
-  AuthUser,
   clearAuthSession,
   getRefreshToken,
   setAuthSession,
 } from './auth-storage'
+import type { User } from '@/types/user'
 
 type LoginResponse = AuthTokens & {
-  user: AuthUser
+  user: User
 }
 
 export async function loginRequest(username: string, password: string) {

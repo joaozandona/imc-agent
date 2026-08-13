@@ -4,23 +4,20 @@ import {
   Alert,
   Box,
   Button,
-  Combobox,
   Flex,
   Heading,
   HStack,
   NativeSelect,
-  Portal,
   Spinner,
   Stack,
   Table,
   Text,
-  useFilter,
-  useListCollection,
 } from '@chakra-ui/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ListPagination } from '@/components/list-pagination'
+import { StudentCombobox } from '@/components/student-combobox'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import {
   deleteAssessment,
@@ -29,86 +26,9 @@ import {
 import { getApiErrorMessage } from '@/lib/api-error-message'
 import { listUsers } from '@/lib/users-api'
 import { DEFAULT_PAGE_SIZE, SELECT_PAGE_SIZE } from '@/types/pagination'
-import type { ListUser } from '@/types/user'
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString('pt-BR')
-}
-
-type StudentFilterComboboxProps = {
-  students: ListUser[]
-  studentId: string
-  onStudentIdChange: (id: string) => void
-  resetKey: number
-}
-
-function StudentFilterCombobox({
-  students,
-  studentId,
-  onStudentIdChange,
-  resetKey,
-}: StudentFilterComboboxProps) {
-  const studentOptions = useMemo(
-    () =>
-      students.map((student) => ({
-        label: student.name,
-        value: student.id,
-      })),
-    [students],
-  )
-
-  const { contains } = useFilter({ sensitivity: 'base' })
-  const { collection, filter, set } = useListCollection({
-    initialItems: studentOptions,
-    filter: contains,
-  })
-
-  useEffect(() => {
-    set(studentOptions)
-  }, [studentOptions, set, resetKey])
-
-  return (
-    <Combobox.Root
-      key={resetKey}
-      collection={collection}
-      value={studentId ? [studentId] : []}
-      onValueChange={(details) => {
-        onStudentIdChange(details.value[0] ?? '')
-      }}
-      onInputValueChange={(details) => {
-        filter(details.inputValue)
-        if (!details.inputValue.trim()) {
-          onStudentIdChange('')
-        }
-      }}
-      openOnChange={(details) => details.inputValue.trim().length > 0}
-      openOnClick={false}
-      selectionBehavior="replace"
-      width="full"
-    >
-      <Combobox.Control>
-        <Combobox.Input placeholder="Digite para buscar aluno" />
-        <Combobox.IndicatorGroup>
-          <Combobox.ClearTrigger />
-          <Combobox.Trigger />
-        </Combobox.IndicatorGroup>
-      </Combobox.Control>
-
-      <Portal>
-        <Combobox.Positioner>
-          <Combobox.Content>
-            <Combobox.Empty>Nenhum aluno encontrado.</Combobox.Empty>
-            {collection.items.map((item) => (
-              <Combobox.Item key={item.value} item={item}>
-                <Combobox.ItemText>{item.label}</Combobox.ItemText>
-                <Combobox.ItemIndicator />
-              </Combobox.Item>
-            ))}
-          </Combobox.Content>
-        </Combobox.Positioner>
-      </Portal>
-    </Combobox.Root>
-  )
 }
 
 export function AssessmentsList() {
@@ -253,10 +173,10 @@ export function AssessmentsList() {
             <Text fontSize="sm" mb={1} fontWeight="medium">
               Aluno
             </Text>
-            <StudentFilterCombobox
+            <StudentCombobox
               students={students}
-              studentId={studentId}
-              onStudentIdChange={handleStudentIdChange}
+              value={studentId}
+              onChange={handleStudentIdChange}
               resetKey={studentFilterKey}
             />
           </Box>

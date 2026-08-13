@@ -1,12 +1,13 @@
 'use client'
 
-import { Field, Input, NativeSelect, Spinner, Text } from '@chakra-ui/react'
+import { Field, Input, Spinner, Text } from '@chakra-ui/react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { AssessmentFormLayout } from '@/app/assessments/assessment-form-layout'
+import { StudentCombobox } from '@/components/student-combobox'
 import { getApiErrorMessage } from '@/lib/api-error-message'
 import { createAssessment } from '@/lib/assessments-api'
 import { listUsers } from '@/lib/users-api'
@@ -35,6 +36,7 @@ export function CreateAssessmentForm() {
   )
 
   const {
+    control,
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
@@ -86,16 +88,18 @@ export function CreateAssessmentForm() {
     >
       <Field.Root invalid={Boolean(errors.studentId)}>
         <Field.Label>Aluno</Field.Label>
-        <NativeSelect.Root>
-          <NativeSelect.Field {...register('studentId')}>
-            <option value="">Selecione</option>
-            {activeStudents.map((student) => (
-              <option key={student.id} value={student.id}>
-                {student.name}
-              </option>
-            ))}
-          </NativeSelect.Field>
-        </NativeSelect.Root>
+        <Controller
+          name="studentId"
+          control={control}
+          render={({ field }) => (
+            <StudentCombobox
+              students={activeStudents}
+              value={field.value}
+              onChange={field.onChange}
+              placeholder="Digite para buscar aluno"
+            />
+          )}
+        />
         {errors.studentId?.message ? (
           <Field.ErrorText>{errors.studentId.message}</Field.ErrorText>
         ) : null}

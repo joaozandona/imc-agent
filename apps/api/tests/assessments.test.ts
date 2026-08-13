@@ -81,8 +81,9 @@ describe('Assessments', () => {
     expect(response.status).toBe(201)
     expect(response.body.imc).toBe(22.9)
     expect(response.body.classification).toBe('Peso normal')
-    expect(response.body.idUsuarioAluno).toBe(studentId)
-    expect(response.body.idUsuarioAvaliacao).toEqual(expect.any(String))
+    expect(response.body.id).toEqual(expect.any(String))
+    expect(response.body.student).toBeUndefined()
+    expect(response.body.evaluator).toBeUndefined()
   })
 
   it('blocks assessments for inactive students', async () => {
@@ -115,7 +116,9 @@ describe('Assessments', () => {
 
     expect(response.status).toBe(200)
     expect(response.body).toHaveLength(1)
-    expect(response.body[0].idUsuarioAluno).toBe(studentId)
+    expect(response.body[0].student.id).toBe(studentId)
+    expect(response.body[0].student.name).toBe('Student')
+    expect(response.body[0].evaluator.name).toBe('Professor')
   })
 
   it('allows professor to list only assessments they registered', async () => {

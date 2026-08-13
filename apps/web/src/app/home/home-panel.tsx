@@ -1,6 +1,6 @@
 'use client'
 
-import { Box, Button, Stack, Text } from '@chakra-ui/react'
+import { Box, Button, HStack, Stack, Text } from '@chakra-ui/react'
 import Link from 'next/link'
 import { AppShell } from '@/components/app-shell'
 import { AuthGuard } from '@/components/auth-guard'
@@ -50,11 +50,16 @@ export function HomePanel() {
             </Box>
           ) : null}
 
-          {canManageUsers ? (
-            <Button asChild colorPalette="brand" alignSelf="flex-start">
-              <Link href="/users">Ir para usuários</Link>
+          <HStack gap={3} flexWrap="wrap">
+            {canManageUsers ? (
+              <Button asChild colorPalette="brand">
+                <Link href="/users">Ir para usuários</Link>
+              </Button>
+            ) : null}
+            <Button asChild colorPalette="brand" variant={canManageUsers ? 'outline' : 'solid'}>
+              <Link href="/assessments">Ir para avaliações</Link>
             </Button>
-          ) : null}
+          </HStack>
         </Stack>
       </AppShell>
     </AuthGuard>

@@ -1,4 +1,5 @@
 import { calculateImc, classifyImc } from '@imc/shared'
+import { FindOptionsWhere } from 'typeorm'
 import { AppDataSource } from '../database/data-source'
 import { Assessment } from '../database/entities/Assessment'
 import { User, UserPerfil, UserSituacao } from '../database/entities/User'
@@ -10,6 +11,18 @@ import {
 } from '../schemas/assessment-schema'
 import { CurrentUser } from '../types/current-user'
 
+const assessmentRelations = {
+  usuarioAluno: true,
+  usuarioAvaliacao: true,
+} as const
+
+function toRelatedUser(user: User) {
+  return {
+    id: user.id,
+    name: user.nome,
+  }
+}
+
 function toListAssessment(assessment: Assessment) {
   return {
     id: assessment.id,
@@ -17,8 +30,19 @@ function toListAssessment(assessment: Assessment) {
     weight: Number(assessment.peso),
     imc: Number(assessment.imc),
     classification: assessment.classificacao,
-    idUsuarioAvaliacao: assessment.idUsuarioAvaliacao,
-    idUsuarioAluno: assessment.idUsuarioAluno,
+    student: toRelatedUser(assessment.usuarioAluno),
+    evaluator: toRelatedUser(assessment.usuarioAvaliacao),
+    createdAt: assessment.createdAt,
+  }
+}
+
+function toSavedAssessment(assessment: Assessment) {
+  return {
+    id: assessment.id,
+    height: Number(assessment.altura),
+    weight: Number(assessment.peso),
+    imc: Number(assessment.imc),
+    classification: assessment.classificacao,
     createdAt: assessment.createdAt,
   }
 }
@@ -27,8 +51,15 @@ export class AssessmentService {
   private assessments = AppDataSource.getRepository(Assessment)
   private users = AppDataSource.getRepository(User)
 
+  private async findOneWithRelations(id: string) {
+    return this.assessments.findOne({
+      where: { id },
+      relations: assessmentRelations,
+    })
+  }
+
   async list(currentUser: CurrentUser, query: ListAssessmentsQuery) {
-    const where: Record<string, string> = {}
+    const where: FindOptionsWhere<Assessment> = {}
 
     if (currentUser.role === UserPerfil.ALUNO) {
       where.idUsuarioAluno = currentUser.id
@@ -66,6 +97,7 @@ export class AssessmentService {
 
     const assessments = await this.assessments.find({
       where,
+      relations: assessmentRelations,
       order: { createdAt: 'DESC' },
     })
 
@@ -73,7 +105,7 @@ export class AssessmentService {
   }
 
   async getById(currentUser: CurrentUser, id: string) {
-    const assessment = await this.assessments.findOne({ where: { id } })
+    const assessment = await this.findOneWithRelations(id)
 
     if (!assessment) {
       throw new AppError('ASSESSMENT_NOT_FOUND', 404, 'Assessment not found')
@@ -118,7 +150,7 @@ export class AssessmentService {
     })
 
     await this.assessments.save(assessment)
-    return toListAssessment(assessment)
+    return toSavedAssessment(assessment)
   }
 
   async update(currentUser: CurrentUser, id: string, data: UpdateAssessmentData) {
@@ -140,7 +172,7 @@ export class AssessmentService {
     assessment.classificacao = classifyImc(imc)
 
     await this.assessments.save(assessment)
-    return toListAssessment(assessment)
+    return toSavedAssessment(assessment)
   }
 
   async delete(currentUser: CurrentUser, id: string) {

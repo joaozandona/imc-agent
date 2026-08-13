@@ -65,6 +65,15 @@ export function AppShell({ children, title = 'Painel' }: AppShellProps) {
                     Usuários
                   </NavItem>
                 ) : null}
+                <NavItem
+                  href="/assessments"
+                  active={
+                    pathname === '/assessments' ||
+                    pathname.startsWith('/assessments/')
+                  }
+                >
+                  Avaliações
+                </NavItem>
               </HStack>
 
               <Button

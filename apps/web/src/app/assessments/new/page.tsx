@@ -3,7 +3,7 @@
 import { AppShell } from '@/components/app-shell'
 import { AuthGuard } from '@/components/auth-guard'
 import { RoleGuard } from '@/components/role-guard'
-import { CreateAssessmentForm } from '../create-assessment-form'
+import { CreateAssessmentForm } from './create-assessment-form'
 
 export default function NewAssessmentPage() {
   return (

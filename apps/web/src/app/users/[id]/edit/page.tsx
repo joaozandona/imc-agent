@@ -3,7 +3,7 @@
 import { Alert, Flex, Spinner } from '@chakra-ui/react'
 import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
-import { EditUserForm } from '@/app/users/edit-user-form'
+import { EditUserForm } from './edit-user-form'
 import { AppShell } from '@/components/app-shell'
 import { AuthGuard } from '@/components/auth-guard'
 import { RoleGuard } from '@/components/role-guard'

@@ -1,3 +1,4 @@
+import { FindOptionsWhere, Like } from 'typeorm'
 import { AppDataSource } from '../database/data-source'
 import { Assessment } from '../database/entities/Assessment'
 import { User, UserPerfil, UserSituacao } from '../database/entities/User'
@@ -30,35 +31,51 @@ export class UserService {
   async list(currentUser: CurrentUser, query: ListUsersQuery) {
     const { page, limit } = query
     const skip = getPaginationSkip(page, limit)
+    const where = this.buildListWhere(currentUser, query)
 
-    if (currentUser.role === UserPerfil.ADMIN) {
-      const [users, total] = await this.users.findAndCount({
-        order: { createdAt: 'DESC' },
-        skip,
-        take: limit,
-      })
-
-      return {
-        data: users.map(toListUser),
-        meta: buildPaginationMeta(page, limit, total),
-      }
+    if (where === null) {
+      throw new AppError('FORBIDDEN', 403, 'You do not have permission to list users')
     }
+
+    const [users, total] = await this.users.findAndCount({
+      where,
+      order: { createdAt: 'DESC' },
+      skip,
+      take: limit,
+    })
+
+    return {
+      data: users.map(toListUser),
+      meta: buildPaginationMeta(page, limit, total),
+    }
+  }
+
+  private buildListWhere(
+    currentUser: CurrentUser,
+    query: ListUsersQuery,
+  ): FindOptionsWhere<User> | null {
+    if (
+      currentUser.role !== UserPerfil.ADMIN &&
+      currentUser.role !== UserPerfil.PROFESSOR
+    ) {
+      return null
+    }
+
+    const where: FindOptionsWhere<User> = {}
 
     if (currentUser.role === UserPerfil.PROFESSOR) {
-      const [users, total] = await this.users.findAndCount({
-        where: { perfil: UserPerfil.ALUNO },
-        order: { createdAt: 'DESC' },
-        skip,
-        take: limit,
-      })
-
-      return {
-        data: users.map(toListUser),
-        meta: buildPaginationMeta(page, limit, total),
-      }
+      where.perfil = UserPerfil.ALUNO
     }
 
-    throw new AppError('FORBIDDEN', 403, 'You do not have permission to list users')
+    if (query.name) {
+      where.nome = Like(`%${query.name}%`)
+    }
+
+    if (query.username) {
+      where.usuario = Like(`%${query.username}%`)
+    }
+
+    return where
   }
 
   async getById(currentUser: CurrentUser, id: string) {

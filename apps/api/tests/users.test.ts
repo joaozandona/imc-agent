@@ -199,4 +199,46 @@ describe('Users', () => {
     expect(response.body.meta.total).toBeGreaterThanOrEqual(3)
     expect(response.body.meta.totalPages).toBeGreaterThanOrEqual(2)
   })
+
+  it('filters users by name and username', async () => {
+    const adminToken = await loginAs('admin', 'admin123')
+
+    await request(app)
+      .post('/users')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        name: 'Ana Filter',
+        username: 'anafilter',
+        password: '123456',
+        role: 'aluno',
+      })
+
+    await request(app)
+      .post('/users')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        name: 'Bruno Other',
+        username: 'bruno',
+        password: '123456',
+        role: 'aluno',
+      })
+
+    const byName = await request(app)
+      .get('/users')
+      .query({ name: 'Ana' })
+      .set('Authorization', `Bearer ${adminToken}`)
+
+    expect(byName.status).toBe(200)
+    expect(byName.body.data).toHaveLength(1)
+    expect(byName.body.data[0].name).toBe('Ana Filter')
+
+    const byUsername = await request(app)
+      .get('/users')
+      .query({ username: 'bruno' })
+      .set('Authorization', `Bearer ${adminToken}`)
+
+    expect(byUsername.status).toBe(200)
+    expect(byUsername.body.data).toHaveLength(1)
+    expect(byUsername.body.data[0].username).toBe('bruno')
+  })
 })

@@ -21,11 +21,18 @@ export type UpdateUserInput = {
   status?: UserStatus
 }
 
-export async function listUsers(params: PaginationParams = {}) {
+export type ListUsersParams = PaginationParams & {
+  name?: string
+  username?: string
+}
+
+export async function listUsers(params: ListUsersParams = {}) {
   const { data } = await api.get<PaginatedResponse<ListUser>>('/users', {
     params: {
       page: params.page ?? 1,
       limit: params.limit ?? DEFAULT_PAGE_SIZE,
+      name: params.name || undefined,
+      username: params.username || undefined,
     },
   })
   return data

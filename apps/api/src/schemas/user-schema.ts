@@ -17,7 +17,10 @@ export const updateUserSchema = z.object({
   status: z.enum(['ativo', 'inativo']).optional(),
 })
 
-export const listUsersQuerySchema = paginationQuerySchema
+export const listUsersQuerySchema = paginationQuerySchema.extend({
+  name: z.string().trim().optional(),
+  username: z.string().trim().optional(),
+})
 
 export type CreateUserData = z.infer<typeof createUserSchema>
 export type UpdateUserData = z.infer<typeof updateUserSchema>

@@ -7,14 +7,15 @@ import {
   Flex,
   Heading,
   HStack,
+  Input,
   Spinner,
   Stack,
   Table,
   Text,
 } from '@chakra-ui/react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ListPagination } from '@/components/list-pagination'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { getApiErrorMessage } from '@/lib/api-error-message'
@@ -32,11 +33,24 @@ export function UsersList() {
   const queryClient = useQueryClient()
   const currentUser = useCurrentUser()
   const [page, setPage] = useState(1)
+  const [nameFilter, setNameFilter] = useState('')
+  const [usernameFilter, setUsernameFilter] = useState('')
   const [actionError, setActionError] = useState<string | null>(null)
 
+  const filters = useMemo(
+    () => ({
+      page,
+      limit: DEFAULT_PAGE_SIZE,
+      name: nameFilter.trim() || undefined,
+      username: usernameFilter.trim() || undefined,
+    }),
+    [page, nameFilter, usernameFilter],
+  )
+
   const usersQuery = useQuery({
-    queryKey: ['users', { page, limit: DEFAULT_PAGE_SIZE }],
-    queryFn: () => listUsers({ page, limit: DEFAULT_PAGE_SIZE }),
+    queryKey: ['users', filters],
+    queryFn: () => listUsers(filters),
+    placeholderData: keepPreviousData,
   })
 
   const deleteMutation = useMutation({
@@ -53,6 +67,7 @@ export function UsersList() {
   })
 
   const isAdmin = currentUser?.role === 'admin'
+  const hasFilters = Boolean(nameFilter.trim() || usernameFilter.trim())
 
   const handleDelete = (id: string, name: string) => {
     const confirmed = window.confirm(`Excluir o usuário "${name}"?`)
@@ -60,7 +75,13 @@ export function UsersList() {
     deleteMutation.mutate(id)
   }
 
-  if (usersQuery.isLoading) {
+  const clearFilters = () => {
+    setNameFilter('')
+    setUsernameFilter('')
+    setPage(1)
+  }
+
+  if (usersQuery.isLoading && !usersQuery.data) {
     return (
       <Flex justify="center" py={16}>
         <Spinner size="lg" color="brand.solid" />
@@ -99,6 +120,48 @@ export function UsersList() {
           <Link href="/users/new">Novo usuário</Link>
         </Button>
       </Flex>
+
+      <HStack
+        gap={4}
+        align="flex-end"
+        flexWrap="wrap"
+        bg="white"
+        borderWidth="1px"
+        borderColor="blackAlpha.200"
+        p={4}
+      >
+        <Box minW="200px" flex="1">
+          <Text fontSize="sm" mb={1} fontWeight="medium">
+            Nome
+          </Text>
+          <Input
+            placeholder="Filtrar por nome"
+            value={nameFilter}
+            onChange={(event) => {
+              setNameFilter(event.target.value)
+              setPage(1)
+            }}
+          />
+        </Box>
+        <Box minW="200px" flex="1">
+          <Text fontSize="sm" mb={1} fontWeight="medium">
+            Usuário
+          </Text>
+          <Input
+            placeholder="Filtrar por usuário"
+            value={usernameFilter}
+            onChange={(event) => {
+              setUsernameFilter(event.target.value)
+              setPage(1)
+            }}
+          />
+        </Box>
+        {hasFilters ? (
+          <Button variant="outline" onClick={clearFilters}>
+            Limpar filtros
+          </Button>
+        ) : null}
+      </HStack>
 
       {actionError ? (
         <Alert.Root status="error">

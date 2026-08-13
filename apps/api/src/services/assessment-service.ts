@@ -9,6 +9,10 @@ import {
   ListAssessmentsQuery,
   UpdateAssessmentData,
 } from '../schemas/assessment-schema'
+import {
+  buildPaginationMeta,
+  getPaginationSkip,
+} from '../schemas/pagination-schema'
 import { CurrentUser } from '../types/current-user'
 
 const assessmentRelations = {
@@ -95,13 +99,21 @@ export class AssessmentService {
       where.idUsuarioAvaliacao = query.idUsuarioAvaliacao
     }
 
-    const assessments = await this.assessments.find({
+    const { page, limit } = query
+    const skip = getPaginationSkip(page, limit)
+
+    const [assessments, total] = await this.assessments.findAndCount({
       where,
       relations: assessmentRelations,
       order: { createdAt: 'DESC' },
+      skip,
+      take: limit,
     })
 
-    return assessments.map(toListAssessment)
+    return {
+      data: assessments.map(toListAssessment),
+      meta: buildPaginationMeta(page, limit, total),
+    }
   }
 
   async getById(currentUser: CurrentUser, id: string) {

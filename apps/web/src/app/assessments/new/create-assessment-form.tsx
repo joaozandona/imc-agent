@@ -10,6 +10,7 @@ import { AssessmentFormLayout } from '@/app/assessments/assessment-form-layout'
 import { getApiErrorMessage } from '@/lib/api-error-message'
 import { createAssessment } from '@/lib/assessments-api'
 import { listUsers } from '@/lib/users-api'
+import { SELECT_PAGE_SIZE } from '@/types/pagination'
 import {
   createAssessmentFormSchema,
   CreateAssessmentFormData,
@@ -21,13 +22,13 @@ export function CreateAssessmentForm() {
   const [formError, setFormError] = useState<string | null>(null)
 
   const usersQuery = useQuery({
-    queryKey: ['users'],
-    queryFn: listUsers,
+    queryKey: ['users', { page: 1, limit: SELECT_PAGE_SIZE, purpose: 'select' }],
+    queryFn: () => listUsers({ page: 1, limit: SELECT_PAGE_SIZE }),
   })
 
   const activeStudents = useMemo(
     () =>
-      (usersQuery.data ?? []).filter(
+      (usersQuery.data?.data ?? []).filter(
         (user) => user.role === 'aluno' && user.status === 'ativo',
       ),
     [usersQuery.data],

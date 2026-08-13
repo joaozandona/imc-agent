@@ -1,17 +1,30 @@
 import { Request, Response } from 'express'
 import { sendError } from '../errors/send-error'
-import { createUserSchema, updateUserSchema } from '../schemas/user-schema'
+import { createUserSchema, listUsersQuerySchema, updateUserSchema } from '../schemas/user-schema'
 import { UserService } from '../services/user-service'
 
 export class UserController {
   private userService = new UserService()
 
   list = async (req: Request, res: Response) => {
-    try {
-      const users = await this.userService.list({
-        id: req.user!.id,
-        role: req.user!.role,
+    const parsed = listUsersQuerySchema.safeParse(req.query)
+
+    if (!parsed.success) {
+      return res.status(400).json({
+        code: 'VALIDATION_ERROR',
+        message: 'Invalid request data',
+        issues: parsed.error.issues,
       })
+    }
+
+    try {
+      const users = await this.userService.list(
+        {
+          id: req.user!.id,
+          role: req.user!.role,
+        },
+        parsed.data,
+      )
       return res.json(users)
     } catch (error) {
       return sendError(res, error)

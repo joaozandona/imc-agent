@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { paginationQuerySchema } from './pagination-schema'
 
 export const createUserSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório').max(60),
@@ -16,5 +17,8 @@ export const updateUserSchema = z.object({
   status: z.enum(['ativo', 'inativo']).optional(),
 })
 
+export const listUsersQuerySchema = paginationQuerySchema
+
 export type CreateUserData = z.infer<typeof createUserSchema>
 export type UpdateUserData = z.infer<typeof updateUserSchema>
+export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>

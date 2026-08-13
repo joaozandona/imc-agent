@@ -5,14 +5,20 @@ import type {
   ListAssessmentsFilters,
   UpdateAssessmentInput,
 } from '@/types/assessment'
+import type { PaginatedResponse, PaginationParams } from '@/types/pagination'
+import { DEFAULT_PAGE_SIZE } from '@/types/pagination'
 
 export type { Assessment }
 
-export async function listAssessments(filters: ListAssessmentsFilters = {}) {
-  const { data } = await api.get<Assessment[]>('/assessments', {
+export async function listAssessments(
+  filters: ListAssessmentsFilters & PaginationParams = {},
+) {
+  const { data } = await api.get<PaginatedResponse<Assessment>>('/assessments', {
     params: {
       studentId: filters.studentId || undefined,
       idUsuarioAvaliacao: filters.idUsuarioAvaliacao || undefined,
+      page: filters.page ?? 1,
+      limit: filters.limit ?? DEFAULT_PAGE_SIZE,
     },
   })
   return data

@@ -2,7 +2,11 @@ import { AppDataSource } from '../database/data-source'
 import { Assessment } from '../database/entities/Assessment'
 import { User, UserPerfil, UserSituacao } from '../database/entities/User'
 import { AppError } from '../errors/app-error'
-import { CreateUserData, UpdateUserData } from '../schemas/user-schema'
+import { CreateUserData, ListUsersQuery, UpdateUserData } from '../schemas/user-schema'
+import {
+  buildPaginationMeta,
+  getPaginationSkip,
+} from '../schemas/pagination-schema'
 import { CurrentUser } from '../types/current-user'
 import { LoginService } from './login-service'
 
@@ -23,18 +27,35 @@ export class UserService {
   private assessments = AppDataSource.getRepository(Assessment)
   private loginService = new LoginService()
 
-  async list(currentUser: CurrentUser) {
+  async list(currentUser: CurrentUser, query: ListUsersQuery) {
+    const { page, limit } = query
+    const skip = getPaginationSkip(page, limit)
+
     if (currentUser.role === UserPerfil.ADMIN) {
-      const users = await this.users.find({ order: { createdAt: 'DESC' } })
-      return users.map(toListUser)
+      const [users, total] = await this.users.findAndCount({
+        order: { createdAt: 'DESC' },
+        skip,
+        take: limit,
+      })
+
+      return {
+        data: users.map(toListUser),
+        meta: buildPaginationMeta(page, limit, total),
+      }
     }
 
     if (currentUser.role === UserPerfil.PROFESSOR) {
-      const users = await this.users.find({
+      const [users, total] = await this.users.findAndCount({
         where: { perfil: UserPerfil.ALUNO },
         order: { createdAt: 'DESC' },
+        skip,
+        take: limit,
       })
-      return users.map(toListUser)
+
+      return {
+        data: users.map(toListUser),
+        meta: buildPaginationMeta(page, limit, total),
+      }
     }
 
     throw new AppError('FORBIDDEN', 403, 'You do not have permission to list users')

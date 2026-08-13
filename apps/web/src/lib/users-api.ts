@@ -1,5 +1,7 @@
 import { api } from './api'
 import type { ListUser, UserRole, UserStatus } from '@/types/user'
+import type { PaginatedResponse, PaginationParams } from '@/types/pagination'
+import { DEFAULT_PAGE_SIZE } from '@/types/pagination'
 
 export type { ListUser }
 
@@ -19,8 +21,13 @@ export type UpdateUserInput = {
   status?: UserStatus
 }
 
-export async function listUsers() {
-  const { data } = await api.get<ListUser[]>('/users')
+export async function listUsers(params: PaginationParams = {}) {
+  const { data } = await api.get<PaginatedResponse<ListUser>>('/users', {
+    params: {
+      page: params.page ?? 1,
+      limit: params.limit ?? DEFAULT_PAGE_SIZE,
+    },
+  })
   return data
 }
 

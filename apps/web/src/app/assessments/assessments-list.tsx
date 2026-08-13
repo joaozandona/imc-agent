@@ -20,6 +20,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
+import { ListPagination } from '@/components/list-pagination'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import {
   deleteAssessment,
@@ -27,6 +28,7 @@ import {
 } from '@/lib/assessments-api'
 import { getApiErrorMessage } from '@/lib/api-error-message'
 import { listUsers } from '@/lib/users-api'
+import { DEFAULT_PAGE_SIZE, SELECT_PAGE_SIZE } from '@/types/pagination'
 import type { ListUser } from '@/types/user'
 
 function formatDate(value: string) {
@@ -115,6 +117,7 @@ export function AssessmentsList() {
   const [studentId, setStudentId] = useState('')
   const [studentFilterKey, setStudentFilterKey] = useState(0)
   const [evaluatorId, setEvaluatorId] = useState('')
+  const [page, setPage] = useState(1)
   const [actionError, setActionError] = useState<string | null>(null)
 
   const isAdmin = currentUser?.role === 'admin'
@@ -123,8 +126,8 @@ export function AssessmentsList() {
   const canManage = isAdmin || isProfessor
 
   const usersQuery = useQuery({
-    queryKey: ['users'],
-    queryFn: listUsers,
+    queryKey: ['users', { page: 1, limit: SELECT_PAGE_SIZE, purpose: 'filters' }],
+    queryFn: () => listUsers({ page: 1, limit: SELECT_PAGE_SIZE }),
     enabled: canManage,
   })
 
@@ -132,8 +135,10 @@ export function AssessmentsList() {
     () => ({
       studentId: studentId || undefined,
       idUsuarioAvaliacao: isAdmin && evaluatorId ? evaluatorId : undefined,
+      page,
+      limit: DEFAULT_PAGE_SIZE,
     }),
-    [studentId, evaluatorId, isAdmin],
+    [studentId, evaluatorId, isAdmin, page],
   )
 
   const assessmentsQuery = useQuery({
@@ -155,26 +160,20 @@ export function AssessmentsList() {
   })
 
   const students = useMemo(
-    () => (usersQuery.data ?? []).filter((user) => user.role === 'aluno'),
+    () => (usersQuery.data?.data ?? []).filter((user) => user.role === 'aluno'),
     [usersQuery.data],
   )
 
   const evaluators = useMemo(
     () =>
-      (usersQuery.data ?? []).filter(
+      (usersQuery.data?.data ?? []).filter(
         (user) => user.role === 'admin' || user.role === 'professor',
       ),
     [usersQuery.data],
   )
 
-  const assessments = useMemo(() => {
-    const items = [...(assessmentsQuery.data ?? [])]
-    items.sort(
-      (a, b) =>
-        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-    )
-    return items
-  }, [assessmentsQuery.data])
+  const assessments = assessmentsQuery.data?.data ?? []
+  const meta = assessmentsQuery.data?.meta
 
   const handleDelete = (id: string) => {
     const confirmed = window.confirm('Excluir esta avaliação?')
@@ -186,6 +185,12 @@ export function AssessmentsList() {
     setStudentId('')
     setEvaluatorId('')
     setStudentFilterKey((key) => key + 1)
+    setPage(1)
+  }
+
+  const handleStudentIdChange = (id: string) => {
+    setStudentId(id)
+    setPage(1)
   }
 
   if (assessmentsQuery.isLoading) {
@@ -251,7 +256,7 @@ export function AssessmentsList() {
             <StudentFilterCombobox
               students={students}
               studentId={studentId}
-              onStudentIdChange={setStudentId}
+              onStudentIdChange={handleStudentIdChange}
               resetKey={studentFilterKey}
             />
           </Box>
@@ -264,7 +269,10 @@ export function AssessmentsList() {
               <NativeSelect.Root>
                 <NativeSelect.Field
                   value={evaluatorId}
-                  onChange={(event) => setEvaluatorId(event.target.value)}
+                  onChange={(event) => {
+                    setEvaluatorId(event.target.value)
+                    setPage(1)
+                  }}
                 >
                   <option value="">Todos</option>
                   {evaluators.map((evaluator) => (
@@ -378,6 +386,8 @@ export function AssessmentsList() {
           </Table.Body>
         </Table.Root>
       </Box>
+
+      {meta ? <ListPagination meta={meta} onPageChange={setPage} /> : null}
     </Stack>
   )
 }

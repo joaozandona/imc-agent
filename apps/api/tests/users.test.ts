@@ -162,7 +162,41 @@ describe('Users', () => {
       .set('Authorization', `Bearer ${professorToken}`)
 
     expect(response.status).toBe(200)
-    expect(response.body.length).toBeGreaterThanOrEqual(1)
-    expect(response.body.every((user: { role: string }) => user.role === 'aluno')).toBe(true)
+    expect(response.body.data.length).toBeGreaterThanOrEqual(1)
+    expect(
+      response.body.data.every((user: { role: string }) => user.role === 'aluno'),
+    ).toBe(true)
+    expect(response.body.meta).toMatchObject({
+      page: 1,
+      limit: 20,
+    })
+  })
+
+  it('paginates users list for admin', async () => {
+    const adminToken = await loginAs('admin', 'admin123')
+
+    for (let index = 0; index < 3; index += 1) {
+      await request(app)
+        .post('/users')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name: `Student ${index}`,
+          username: `student-page-${index}`,
+          password: '123456',
+          role: 'aluno',
+        })
+    }
+
+    const response = await request(app)
+      .get('/users')
+      .query({ page: 1, limit: 2 })
+      .set('Authorization', `Bearer ${adminToken}`)
+
+    expect(response.status).toBe(200)
+    expect(response.body.data).toHaveLength(2)
+    expect(response.body.meta.page).toBe(1)
+    expect(response.body.meta.limit).toBe(2)
+    expect(response.body.meta.total).toBeGreaterThanOrEqual(3)
+    expect(response.body.meta.totalPages).toBeGreaterThanOrEqual(2)
   })
 })

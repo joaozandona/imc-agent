@@ -15,9 +15,11 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useState } from 'react'
+import { ListPagination } from '@/components/list-pagination'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { getApiErrorMessage } from '@/lib/api-error-message'
 import { deleteUser, listUsers } from '@/lib/users-api'
+import { DEFAULT_PAGE_SIZE } from '@/types/pagination'
 import type { UserRole } from '@/types/user'
 
 const roleLabels: Record<UserRole, string> = {
@@ -29,11 +31,12 @@ const roleLabels: Record<UserRole, string> = {
 export function UsersList() {
   const queryClient = useQueryClient()
   const currentUser = useCurrentUser()
+  const [page, setPage] = useState(1)
   const [actionError, setActionError] = useState<string | null>(null)
 
   const usersQuery = useQuery({
-    queryKey: ['users'],
-    queryFn: listUsers,
+    queryKey: ['users', { page, limit: DEFAULT_PAGE_SIZE }],
+    queryFn: () => listUsers({ page, limit: DEFAULT_PAGE_SIZE }),
   })
 
   const deleteMutation = useMutation({
@@ -76,7 +79,8 @@ export function UsersList() {
     )
   }
 
-  const users = usersQuery.data ?? []
+  const users = usersQuery.data?.data ?? []
+  const meta = usersQuery.data?.meta
 
   return (
     <Stack gap={6}>
@@ -164,6 +168,8 @@ export function UsersList() {
           </Table.Body>
         </Table.Root>
       </Box>
+
+      {meta ? <ListPagination meta={meta} onPageChange={setPage} /> : null}
     </Stack>
   )
 }

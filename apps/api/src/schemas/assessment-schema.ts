@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { paginationQuerySchema } from './pagination-schema'
 
 export const createAssessmentSchema = z.object({
   studentId: z.string().uuid('studentId must be a valid UUID'),
@@ -11,7 +12,7 @@ export const updateAssessmentSchema = z.object({
   weight: z.number().positive('Weight must be greater than zero').optional(),
 })
 
-export const listAssessmentsQuerySchema = z.object({
+export const listAssessmentsQuerySchema = paginationQuerySchema.extend({
   studentId: z.string().uuid().optional(),
   idUsuarioAvaliacao: z.string().uuid().optional(),
 })

@@ -115,10 +115,16 @@ describe('Assessments', () => {
       .set('Authorization', `Bearer ${studentToken}`)
 
     expect(response.status).toBe(200)
-    expect(response.body).toHaveLength(1)
-    expect(response.body[0].student.id).toBe(studentId)
-    expect(response.body[0].student.name).toBe('Student')
-    expect(response.body[0].evaluator.name).toBe('Professor')
+    expect(response.body.data).toHaveLength(1)
+    expect(response.body.data[0].student.id).toBe(studentId)
+    expect(response.body.data[0].student.name).toBe('Student')
+    expect(response.body.data[0].evaluator.name).toBe('Professor')
+    expect(response.body.meta).toMatchObject({
+      page: 1,
+      limit: 20,
+      total: 1,
+      totalPages: 1,
+    })
   })
 
   it('allows professor to list only assessments they registered', async () => {
@@ -145,7 +151,34 @@ describe('Assessments', () => {
       .set('Authorization', `Bearer ${professorToken}`)
 
     expect(response.status).toBe(200)
-    expect(response.body).toHaveLength(1)
+    expect(response.body.data).toHaveLength(1)
+  })
+
+  it('paginates assessments list', async () => {
+    for (let index = 0; index < 3; index += 1) {
+      await request(app)
+        .post('/assessments')
+        .set('Authorization', `Bearer ${professorToken}`)
+        .send({
+          studentId,
+          height: 1.7 + index * 0.01,
+          weight: 70 + index,
+        })
+    }
+
+    const response = await request(app)
+      .get('/assessments')
+      .query({ page: 1, limit: 2 })
+      .set('Authorization', `Bearer ${professorToken}`)
+
+    expect(response.status).toBe(200)
+    expect(response.body.data).toHaveLength(2)
+    expect(response.body.meta).toMatchObject({
+      page: 1,
+      limit: 2,
+      total: 3,
+      totalPages: 2,
+    })
   })
 
   it('allows only admin to delete assessments', async () => {

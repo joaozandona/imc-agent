@@ -16,6 +16,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
+import { ConfirmDialog } from '@/components/confirm-dialog'
 import { ListPagination } from '@/components/list-pagination'
 import {
   SortableColumnHeader,
@@ -52,6 +53,7 @@ export function AssessmentsList() {
   const [sortBy, setSortBy] = useState<AssessmentSortBy>(DEFAULT_SORT_BY)
   const [sortOrder, setSortOrder] = useState<SortOrder>(DEFAULT_SORT_ORDER)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
 
   const isAdmin = currentUser?.role === 'admin'
   const isProfessor = currentUser?.role === 'professor'
@@ -85,12 +87,14 @@ export function AssessmentsList() {
     mutationFn: deleteAssessment,
     onSuccess: async () => {
       setActionError(null)
+      setPendingDeleteId(null)
       await queryClient.invalidateQueries({ queryKey: ['assessments'] })
     },
     onError: (error) => {
       setActionError(
         getApiErrorMessage(error, 'Não foi possível excluir a avaliação.'),
       )
+      setPendingDeleteId(null)
     },
   })
 
@@ -109,12 +113,6 @@ export function AssessmentsList() {
 
   const assessments = assessmentsQuery.data?.data ?? []
   const meta = assessmentsQuery.data?.meta
-
-  const handleDelete = (id: string) => {
-    const confirmed = window.confirm('Excluir esta avaliação?')
-    if (!confirmed) return
-    deleteMutation.mutate(id)
-  }
 
   const clearFilters = () => {
     setStudentId('')
@@ -356,7 +354,7 @@ export function AssessmentsList() {
                               deleteMutation.isPending &&
                               deleteMutation.variables === assessment.id
                             }
-                            onClick={() => handleDelete(assessment.id)}
+                            onClick={() => setPendingDeleteId(assessment.id)}
                           >
                             Excluir
                           </Button>
@@ -372,6 +370,17 @@ export function AssessmentsList() {
       </Box>
 
       {meta ? <ListPagination meta={meta} onPageChange={setPage} /> : null}
+
+      <ConfirmDialog
+        open={Boolean(pendingDeleteId)}
+        description="Tem certeza de que deseja excluir esta avaliação?"
+        loading={deleteMutation.isPending}
+        onCancel={() => setPendingDeleteId(null)}
+        onConfirm={() => {
+          if (!pendingDeleteId) return
+          deleteMutation.mutate(pendingDeleteId)
+        }}
+      />
     </Stack>
   )
 }

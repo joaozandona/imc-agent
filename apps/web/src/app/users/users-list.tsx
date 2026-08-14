@@ -16,6 +16,7 @@ import {
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
+import { ConfirmDialog } from '@/components/confirm-dialog'
 import { ListPagination } from '@/components/list-pagination'
 import {
   SortableColumnHeader,
@@ -38,6 +39,11 @@ const roleLabels: Record<UserRole, string> = {
   aluno: 'Aluno',
 }
 
+type PendingDeleteUser = {
+  id: string
+  name: string
+}
+
 export function UsersList() {
   const queryClient = useQueryClient()
   const currentUser = useCurrentUser()
@@ -47,6 +53,9 @@ export function UsersList() {
   const [sortBy, setSortBy] = useState<UserSortBy>(DEFAULT_SORT_BY)
   const [sortOrder, setSortOrder] = useState<SortOrder>(DEFAULT_SORT_ORDER)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<PendingDeleteUser | null>(
+    null,
+  )
 
   const filters = useMemo(
     () => ({
@@ -70,23 +79,19 @@ export function UsersList() {
     mutationFn: deleteUser,
     onSuccess: async () => {
       setActionError(null)
+      setPendingDelete(null)
       await queryClient.invalidateQueries({ queryKey: ['users'] })
     },
     onError: (error) => {
       setActionError(
         getApiErrorMessage(error, 'Não foi possível excluir o usuário.'),
       )
+      setPendingDelete(null)
     },
   })
 
   const isAdmin = currentUser?.role === 'admin'
   const hasFilters = Boolean(nameFilter.trim() || usernameFilter.trim())
-
-  const handleDelete = (id: string, name: string) => {
-    const confirmed = window.confirm(`Excluir o usuário "${name}"?`)
-    if (!confirmed) return
-    deleteMutation.mutate(id)
-  }
 
   const clearFilters = () => {
     setNameFilter('')
@@ -276,7 +281,9 @@ export function UsersList() {
                             deleteMutation.isPending &&
                             deleteMutation.variables === user.id
                           }
-                          onClick={() => handleDelete(user.id, user.name)}
+                          onClick={() =>
+                            setPendingDelete({ id: user.id, name: user.name })
+                          }
                         >
                           Excluir
                         </Button>
@@ -291,6 +298,21 @@ export function UsersList() {
       </Box>
 
       {meta ? <ListPagination meta={meta} onPageChange={setPage} /> : null}
+
+      <ConfirmDialog
+        open={Boolean(pendingDelete)}
+        description={
+          pendingDelete
+            ? `Tem certeza de que deseja excluir o usuário "${pendingDelete.name}"?`
+            : ''
+        }
+        loading={deleteMutation.isPending}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (!pendingDelete) return
+          deleteMutation.mutate(pendingDelete.id)
+        }}
+      />
     </Stack>
   )
 }

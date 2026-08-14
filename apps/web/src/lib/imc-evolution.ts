@@ -4,6 +4,7 @@ export type ImcEvolutionPoint = {
   id: string
   date: string
   dateLabel: string
+  axisLabel: string
   imc: number
   weight: number
   height: number
@@ -89,6 +90,10 @@ export function toImcEvolutionPoints(
       date: assessment.createdAt,
       dateLabel: new Date(assessment.createdAt).toLocaleDateString('pt-BR', {
         day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      }),
+      axisLabel: new Date(assessment.createdAt).toLocaleDateString('pt-BR', {
         month: '2-digit',
         year: '2-digit',
       }),

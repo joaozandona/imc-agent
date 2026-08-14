@@ -9,7 +9,20 @@ type ImcEvolutionChartProps = {
 
 const WIDTH = 720
 const HEIGHT = 300
-const PADDING = { top: 36, right: 36, bottom: 48, left: 56 }
+const PADDING = { top: 36, right: 36, bottom: 40, left: 56 }
+const MAX_X_LABELS = 8
+
+function xLabelIndices(total: number) {
+  if (total <= MAX_X_LABELS) {
+    return new Set(Array.from({ length: total }, (_, index) => index))
+  }
+
+  const indices = new Set<number>()
+  for (let slot = 0; slot < MAX_X_LABELS; slot += 1) {
+    indices.add(Math.round((slot / (MAX_X_LABELS - 1)) * (total - 1)))
+  }
+  return indices
+}
 
 export function ImcEvolutionChart({ points }: ImcEvolutionChartProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
@@ -51,7 +64,17 @@ export function ImcEvolutionChart({ points }: ImcEvolutionChartProps) {
       y: yForImc(point.imc),
     }))
 
-    return { minImc, maxImc, plotWidth, plotHeight, linePath, yTicks, yForImc, plotted }
+    return {
+      minImc,
+      maxImc,
+      plotWidth,
+      plotHeight,
+      linePath,
+      yTicks,
+      yForImc,
+      plotted,
+      xLabels: xLabelIndices(points.length),
+    }
   }, [points])
 
   if (!layout) {
@@ -124,6 +147,7 @@ export function ImcEvolutionChart({ points }: ImcEvolutionChartProps) {
 
         {layout.plotted.map(({ point, x, y }, index) => {
           const active = hoveredId === point.id
+          const showLabel = layout.xLabels.has(index)
           return (
             <g
               key={point.id}
@@ -139,21 +163,23 @@ export function ImcEvolutionChart({ points }: ImcEvolutionChartProps) {
                 fill="#221656"
               />
               <circle cx={x} cy={y} r={active ? 3 : 2.5} fill="#FFFFFF" />
-              <text
-                x={x}
-                y={HEIGHT - 16}
-                textAnchor={
-                  index === 0
-                    ? 'start'
-                    : index === layout.plotted.length - 1
-                      ? 'end'
-                      : 'middle'
-                }
-                fontSize="10"
-                fill="#6B6090"
-              >
-                {point.dateLabel}
-              </text>
+              {showLabel ? (
+                <text
+                  x={x}
+                  y={HEIGHT - 18}
+                  textAnchor={
+                    index === 0
+                      ? 'start'
+                      : index === layout.plotted.length - 1
+                        ? 'end'
+                        : 'middle'
+                  }
+                  fontSize="8"
+                  fill="#6B6090"
+                >
+                  {point.axisLabel}
+                </text>
+              ) : null}
             </g>
           )
         })}
@@ -183,6 +209,7 @@ export function ImcEvolutionChart({ points }: ImcEvolutionChartProps) {
           <div style={{ fontWeight: 700, marginBottom: '0.35rem' }}>
             {hovered.point.classification}
           </div>
+          <div>{hovered.point.dateLabel}</div>
           <div>IMC: {hovered.point.imc.toFixed(1)}</div>
           <div>Peso: {hovered.point.weight.toFixed(1)} kg</div>
           <div>Altura: {hovered.point.height.toFixed(2)} m</div>

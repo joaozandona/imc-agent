@@ -76,6 +76,7 @@ export class LoginService {
     }
 
     const signOptions: SignOptions = {
+      algorithm: 'HS256',
       expiresIn: (process.env.JWT_EXPIRES_IN || '15m') as SignOptions['expiresIn'],
     }
 

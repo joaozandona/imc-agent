@@ -1,14 +1,20 @@
 import { NextFunction, Request, Response } from 'express'
 import jwt from 'jsonwebtoken'
-import { UserPerfil } from '../database/entities/User'
+import { AppDataSource } from '../database/data-source'
+import { User, UserSituacao } from '../database/entities/User'
+import { TokenService } from '../services/token-service'
 
 type TokenPayload = {
   sub: string
   username: string
-  role: UserPerfil
+  role: string
 }
 
-export function ensureAuthenticated(req: Request, res: Response, next: NextFunction) {
+export async function ensureAuthenticated(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   const header = req.headers.authorization
 
   if (!header) {
@@ -37,12 +43,34 @@ export function ensureAuthenticated(req: Request, res: Response, next: NextFunct
   }
 
   try {
-    const decoded = jwt.verify(token, secret) as TokenPayload
+    const decoded = jwt.verify(token, secret, {
+      algorithms: ['HS256'],
+    }) as TokenPayload
+
+    const users = AppDataSource.getRepository(User)
+    const user = await users.findOne({ where: { id: decoded.sub } })
+
+    if (!user) {
+      return res.status(401).json({
+        code: 'USER_NOT_FOUND',
+        message: 'Authenticated user was not found',
+      })
+    }
+
+    if (user.situacao === UserSituacao.INATIVO) {
+      const tokenService = new TokenService()
+      await tokenService.revokeAllForUser(user.id)
+
+      return res.status(403).json({
+        code: 'INACTIVE_USER',
+        message: 'User is inactive',
+      })
+    }
 
     req.user = {
-      id: decoded.sub,
-      username: decoded.username,
-      role: decoded.role,
+      id: user.id,
+      username: user.usuario,
+      role: user.perfil,
     }
 
     return next()

@@ -3,6 +3,7 @@ import { LessThan, MoreThan } from 'typeorm'
 import { AppDataSource } from '../database/data-source'
 import { UserToken } from '../database/entities/UserToken'
 import { AppError } from '../errors/app-error'
+import { hashToken } from '../utils/hash-token'
 import { parseDurationToMs } from '../utils/parse-duration-to-ms'
 
 export class TokenService {
@@ -15,7 +16,7 @@ export class TokenService {
 
     const token = this.tokens.create({
       userId,
-      refreshToken,
+      tokenHash: hashToken(refreshToken),
       expiresAt,
     })
 
@@ -30,7 +31,7 @@ export class TokenService {
   async findValidRefreshToken(refreshToken: string) {
     const token = await this.tokens.findOne({
       where: {
-        refreshToken,
+        tokenHash: hashToken(refreshToken),
         expiresAt: MoreThan(new Date()),
       },
     })
@@ -43,13 +44,19 @@ export class TokenService {
   }
 
   async revokeRefreshToken(refreshToken: string) {
-    const token = await this.tokens.findOne({ where: { refreshToken } })
+    const token = await this.tokens.findOne({
+      where: { tokenHash: hashToken(refreshToken) },
+    })
 
     if (!token) {
       throw new AppError('REFRESH_TOKEN_INVALID', 401, 'Refresh token is invalid or expired')
     }
 
     await this.tokens.remove(token)
+  }
+
+  async revokeAllForUser(userId: string) {
+    await this.tokens.delete({ userId })
   }
 
   async rotateRefreshToken(currentRefreshToken: string) {

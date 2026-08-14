@@ -62,8 +62,4 @@ export class LoginController {
       return sendError(res, error)
     }
   }
-
-  me = async (req: Request, res: Response) => {
-    return res.json({ user: req.user })
-  }
 }

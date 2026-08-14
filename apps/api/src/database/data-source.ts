@@ -11,5 +11,5 @@ export const AppDataSource = new DataSource({
   entities: [User, UserToken, Assessment],
   migrations: process.env.NODE_ENV === 'test' ? [] : ['src/database/migrations/*.{ts,js}'],
   synchronize: process.env.NODE_ENV === 'test',
-  logging: process.env.NODE_ENV !== 'test',
+  logging: process.env.NODE_ENV === 'development'
 })

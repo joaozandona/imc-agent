@@ -14,7 +14,7 @@ export class UserToken {
   id: string
 
   @Column({ name: 'refresh_token', type: 'varchar', length: 255, unique: true })
-  refreshToken: string
+  tokenHash: string
 
   @Column({ name: 'id_usuario', type: 'varchar' })
   userId: string

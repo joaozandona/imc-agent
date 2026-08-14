@@ -16,6 +16,7 @@ import {
 import { toTypeOrmOrder } from '../schemas/sort-schema'
 import { CurrentUser } from '../types/current-user'
 import { LoginService } from './login-service'
+import { TokenService } from './token-service'
 
 function toListUser(user: User) {
   return {
@@ -41,6 +42,7 @@ export class UserService {
   private users = AppDataSource.getRepository(User)
   private assessments = AppDataSource.getRepository(Assessment)
   private loginService = new LoginService()
+  private tokenService = new TokenService()
 
   async list(currentUser: CurrentUser, query: ListUsersQuery) {
     const { page, limit, sortBy, sortOrder } = query
@@ -154,6 +156,11 @@ export class UserService {
     }
 
     await this.users.save(user)
+
+    if (user.situacao === UserSituacao.INATIVO) {
+      await this.tokenService.revokeAllForUser(user.id)
+    }
+
     return toListUser(user)
   }
 

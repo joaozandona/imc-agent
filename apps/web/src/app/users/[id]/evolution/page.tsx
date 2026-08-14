@@ -1,19 +1,27 @@
 import { notFound, redirect } from 'next/navigation'
 import { AppShell } from '@/components/app-shell'
 import { ImcEvolutionPanel } from '@/components/imc-evolution-panel'
+import { filterAssessmentsByDateRange } from '@/lib/imc-evolution'
 import { getUserServer, listAssessmentsServer } from '@/lib/server-data'
-import { requireSessionUser } from '@/lib/session'
+import { firstSearchParam, requireSessionUser } from '@/lib/session'
 import { SELECT_PAGE_SIZE } from '@/types/pagination'
 
 type EvolutionPageProps = {
   params: Promise<{ id: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
 export default async function StudentEvolutionPage({
   params,
+  searchParams,
 }: EvolutionPageProps) {
   const currentUser = await requireSessionUser(['admin', 'professor'])
   const { id } = await params
+  const query = await searchParams
+  const dateRange = {
+    from: firstSearchParam(query.from),
+    to: firstSearchParam(query.to),
+  }
 
   let student
   try {
@@ -34,6 +42,8 @@ export default async function StudentEvolutionPage({
     sortOrder: 'asc',
   })
 
+  const filtered = filterAssessmentsByDateRange(assessments.data, dateRange)
+
   const subtitle =
     currentUser.role === 'professor'
       ? 'Somente avaliações registradas por você'
@@ -44,7 +54,9 @@ export default async function StudentEvolutionPage({
       <ImcEvolutionPanel
         title={`Evolução de ${student.name}`}
         studentName={student.name}
-        assessments={assessments.data}
+        assessments={filtered}
+        filterPath={`/users/${student.id}/evolution`}
+        dateRange={dateRange}
         subtitle={subtitle}
         backHref="/users"
         backLabel="Voltar aos usuários"

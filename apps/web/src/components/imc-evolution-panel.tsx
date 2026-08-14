@@ -1,8 +1,10 @@
 import Link from 'next/link'
 import type { CSSProperties } from 'react'
 import { ImcEvolutionChart } from '@/components/imc-evolution-chart'
+import { ImcEvolutionDateFilter } from '@/components/imc-evolution-date-filter'
 import {
   toImcEvolutionPoints,
+  type ImcDateRange,
   type ImcEvolutionPoint,
 } from '@/lib/imc-evolution'
 import type { Assessment } from '@/types/assessment'
@@ -11,6 +13,8 @@ type ImcEvolutionPanelProps = {
   title: string
   studentName: string
   assessments: Assessment[]
+  filterPath: string
+  dateRange?: ImcDateRange
   backHref?: string
   backLabel?: string
   subtitle?: string
@@ -20,11 +24,14 @@ export function ImcEvolutionPanel({
   title,
   studentName,
   assessments,
+  filterPath,
+  dateRange = {},
   backHref,
   backLabel = 'Voltar',
   subtitle,
 }: ImcEvolutionPanelProps) {
   const points = toImcEvolutionPoints(assessments)
+  const hasDateFilter = Boolean(dateRange.from || dateRange.to)
 
   return (
     <section style={styles.section}>
@@ -44,12 +51,23 @@ export function ImcEvolutionPanel({
         ) : null}
       </header>
 
+      <ImcEvolutionDateFilter
+        pathname={filterPath}
+        from={dateRange.from}
+        to={dateRange.to}
+      />
+
       {points.length === 0 ? (
         <div style={styles.empty}>
-          <p style={styles.emptyTitle}>Ainda não há avaliações</p>
+          <p style={styles.emptyTitle}>
+            {hasDateFilter
+              ? 'Nenhuma avaliação neste período'
+              : 'Ainda não há avaliações'}
+          </p>
           <p style={styles.emptyText}>
-            Quando houver medições registradas, o gráfico de evolução aparece
-            aqui.
+            {hasDateFilter
+              ? 'Ajuste a data inicial e a data final ou limpe o filtro para ver mais resultados.'
+              : 'Quando houver medições registradas, o gráfico de evolução aparece aqui.'}
           </p>
         </div>
       ) : (

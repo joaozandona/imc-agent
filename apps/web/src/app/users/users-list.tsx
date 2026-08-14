@@ -25,13 +25,14 @@ import {
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { getApiErrorMessage } from '@/lib/api-error-message'
 import { deleteUser, listUsers, type UserSortBy } from '@/lib/users-api'
+import type { PaginatedResponse } from '@/types/pagination'
+import type { ListUser, UserRole } from '@/types/user'
 import {
   DEFAULT_PAGE_SIZE,
   DEFAULT_SORT_BY,
   DEFAULT_SORT_ORDER,
   type SortOrder,
 } from '@/types/pagination'
-import type { UserRole } from '@/types/user'
 
 const roleLabels: Record<UserRole, string> = {
   admin: 'Administrador',
@@ -44,7 +45,27 @@ type PendingDeleteUser = {
   name: string
 }
 
-export function UsersList() {
+type UsersListProps = {
+  initialData: PaginatedResponse<ListUser>
+}
+
+function isDefaultFilters(filters: {
+  page: number
+  name?: string
+  username?: string
+  sortBy: UserSortBy
+  sortOrder: SortOrder
+}) {
+  return (
+    filters.page === 1 &&
+    !filters.name &&
+    !filters.username &&
+    filters.sortBy === DEFAULT_SORT_BY &&
+    filters.sortOrder === DEFAULT_SORT_ORDER
+  )
+}
+
+export function UsersList({ initialData }: UsersListProps) {
   const queryClient = useQueryClient()
   const currentUser = useCurrentUser()
   const [page, setPage] = useState(1)
@@ -72,6 +93,7 @@ export function UsersList() {
   const usersQuery = useQuery({
     queryKey: ['users', filters],
     queryFn: () => listUsers(filters),
+    initialData: isDefaultFilters(filters) ? initialData : undefined,
     placeholderData: keepPreviousData,
   })
 

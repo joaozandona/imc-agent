@@ -27,10 +27,12 @@ import { useCurrentUser } from '@/hooks/use-current-user'
 import {
   deleteAssessment,
   listAssessments,
+  type Assessment,
   type AssessmentSortBy,
 } from '@/lib/assessments-api'
 import { getApiErrorMessage } from '@/lib/api-error-message'
 import { listUsers } from '@/lib/users-api'
+import type { PaginatedResponse } from '@/types/pagination'
 import {
   DEFAULT_PAGE_SIZE,
   DEFAULT_SORT_BY,
@@ -43,7 +45,27 @@ function formatDate(value: string) {
   return new Date(value).toLocaleDateString('pt-BR')
 }
 
-export function AssessmentsList() {
+type AssessmentsListProps = {
+  initialData: PaginatedResponse<Assessment>
+}
+
+function isDefaultFilters(filters: {
+  page: number
+  studentId?: string
+  idUsuarioAvaliacao?: string
+  sortBy: AssessmentSortBy
+  sortOrder: SortOrder
+}) {
+  return (
+    filters.page === 1 &&
+    !filters.studentId &&
+    !filters.idUsuarioAvaliacao &&
+    filters.sortBy === DEFAULT_SORT_BY &&
+    filters.sortOrder === DEFAULT_SORT_ORDER
+  )
+}
+
+export function AssessmentsList({ initialData }: AssessmentsListProps) {
   const queryClient = useQueryClient()
   const currentUser = useCurrentUser()
   const [studentId, setStudentId] = useState('')
@@ -81,6 +103,7 @@ export function AssessmentsList() {
   const assessmentsQuery = useQuery({
     queryKey: ['assessments', filters],
     queryFn: () => listAssessments(filters),
+    initialData: isDefaultFilters(filters) ? initialData : undefined,
   })
 
   const deleteMutation = useMutation({

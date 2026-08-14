@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { AppBrandHeader } from '@/components/app-brand-header'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { logoutRequest } from '@/lib/auth-api'
+import { useAuth } from '@/providers/auth-provider'
 
 type AppShellProps = {
   children: React.ReactNode
@@ -17,6 +18,7 @@ export function AppShell({ children, title = 'Painel' }: AppShellProps) {
   const router = useRouter()
   const pathname = usePathname()
   const user = useCurrentUser()
+  const { setUser } = useAuth()
   const [loggingOut, setLoggingOut] = useState(false)
 
   const handleLogout = async () => {
@@ -24,7 +26,9 @@ export function AppShell({ children, title = 'Painel' }: AppShellProps) {
     try {
       await logoutRequest()
     } finally {
+      setUser(null)
       router.replace('/login')
+      router.refresh()
     }
   }
 

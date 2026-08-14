@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { getUserFromCookies } from '@/lib/auth-cookies'
 import { AppProviders } from '@/providers/app-providers'
 import './globals.css'
 
@@ -7,15 +8,17 @@ export const metadata: Metadata = {
   description: 'Acompanhamento de avaliações de IMC',
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const initialUser = await getUserFromCookies()
+
   return (
     <html lang="pt-BR" suppressHydrationWarning>
-      <body>
-        <AppProviders>{children}</AppProviders>
+      <body suppressHydrationWarning>
+        <AppProviders initialUser={initialUser}>{children}</AppProviders>
       </body>
     </html>
   )

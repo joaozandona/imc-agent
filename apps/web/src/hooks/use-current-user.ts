@@ -1,15 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { getStoredUser } from '@/lib/auth-storage'
+import { useAuth } from '@/providers/auth-provider'
 import type { User } from '@/types/user'
 
-export function useCurrentUser() {
-  const [user, setUser] = useState<User | null>(null)
-
-  useEffect(() => {
-    setUser(getStoredUser())
-  }, [])
-
-  return user
+export function useCurrentUser(): User | null {
+  return useAuth().user
 }

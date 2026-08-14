@@ -1,18 +1,13 @@
-'use client'
-
 import { AppShell } from '@/components/app-shell'
-import { AuthGuard } from '@/components/auth-guard'
-import { RoleGuard } from '@/components/role-guard'
+import { requireSessionUser } from '@/lib/session'
 import { CreateAssessmentForm } from './create-assessment-form'
 
-export default function NewAssessmentPage() {
+export default async function NewAssessmentPage() {
+  await requireSessionUser(['admin', 'professor'])
+
   return (
-    <AuthGuard mode="protected">
-      <RoleGuard allow={['admin', 'professor']}>
-        <AppShell title="Avaliações">
-          <CreateAssessmentForm />
-        </AppShell>
-      </RoleGuard>
-    </AuthGuard>
+    <AppShell title="Avaliações">
+      <CreateAssessmentForm />
+    </AppShell>
   )
 }

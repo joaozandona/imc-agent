@@ -1,22 +1,11 @@
-'use client'
+import type { Metadata } from 'next'
+import { LoginPageShell } from './login-page-shell'
 
-import { Box, Container, Stack } from '@chakra-ui/react'
-import { AuthGuard } from '@/components/auth-guard'
-import { AppBrandHeader } from '@/components/app-brand-header'
-import { LoginForm } from './login-form'
+export const metadata: Metadata = {
+  title: 'Entrar | IMC',
+  description: 'Acesso ao painel de IMC da academia',
+}
 
 export default function LoginPage() {
-  return (
-    <AuthGuard mode="guest">
-      <Box minH="100vh" bg="brand.subtle">
-        <Box h="1" bg="brand.solid" />
-        <Container maxW="lg" py={{ base: 10, md: 16 }}>
-          <Stack gap={8} align="center">
-            <AppBrandHeader compact />
-            <LoginForm />
-          </Stack>
-        </Container>
-      </Box>
-    </AuthGuard>
-  )
+  return <LoginPageShell />
 }

@@ -1,8 +1,9 @@
 import type { NextConfig } from 'next'
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333'
-
 const nextConfig: NextConfig = {
+  experimental: {
+    optimizePackageImports: ['@chakra-ui/react'],
+  },
   async headers() {
     return [
       {
@@ -26,7 +27,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob:",
               "font-src 'self' data:",
-              `connect-src 'self' ${apiUrl}`,
+              "connect-src 'self'",
             ].join('; '),
           },
         ],

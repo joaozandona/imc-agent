@@ -1,41 +1,20 @@
-import { api } from './api'
-import {
-  AuthTokens,
-  clearAuthSession,
-  getRefreshToken,
-  setAuthSession,
-} from './auth-storage'
+import axios from 'axios'
 import type { User } from '@/types/user'
 
-type LoginResponse = AuthTokens & {
+type LoginResponse = {
   user: User
 }
 
 export async function loginRequest(username: string, password: string) {
-  const { data } = await api.post<LoginResponse>('/login', {
-    username,
-    password,
-  })
-
-  setAuthSession(
-    {
-      accessToken: data.accessToken,
-      refreshToken: data.refreshToken,
-    },
-    data.user,
+  const { data } = await axios.post<LoginResponse>(
+    '/api/auth/login',
+    { username, password },
+    { withCredentials: true },
   )
 
   return data
 }
 
 export async function logoutRequest() {
-  const refreshToken = getRefreshToken()
-
-  try {
-    if (refreshToken) {
-      await api.post('/login/logout', { refreshToken })
-    }
-  } finally {
-    clearAuthSession()
-  }
+  await axios.post('/api/auth/logout', {}, { withCredentials: true })
 }

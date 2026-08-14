@@ -1,60 +1,31 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
-import {
-  clearAuthSession,
-  getAccessToken,
-  getRefreshToken,
-  setAuthTokens,
-} from './auth-storage'
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333',
+  baseURL: '/api/backend',
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true,
 })
 
 type RetryConfig = InternalAxiosRequestConfig & {
   _retry?: boolean
 }
 
-let refreshPromise: Promise<string | null> | null = null
+let refreshPromise: Promise<boolean> | null = null
 
-async function refreshAccessToken() {
-  const refreshToken = getRefreshToken()
-
-  if (!refreshToken) {
-    clearAuthSession()
-    return null
-  }
-
+async function refreshSession() {
   try {
     const response = await axios.post(
-      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333'}/login/refresh`,
-      { refreshToken },
+      '/api/auth/refresh',
+      {},
+      { withCredentials: true },
     )
-
-    const { accessToken, refreshToken: nextRefreshToken } = response.data
-    setAuthTokens({
-      accessToken,
-      refreshToken: nextRefreshToken,
-    })
-
-    return accessToken as string
+    return response.status === 200
   } catch {
-    clearAuthSession()
-    return null
+    return false
   }
 }
-
-api.interceptors.request.use((config) => {
-  const accessToken = getAccessToken()
-
-  if (accessToken) {
-    config.headers.Authorization = `Bearer ${accessToken}`
-  }
-
-  return config
-})
 
 api.interceptors.response.use(
   (response) => response,
@@ -64,8 +35,7 @@ api.interceptors.response.use(
     if (
       !originalRequest ||
       error.response?.status !== 401 ||
-      originalRequest._retry ||
-      originalRequest.url?.includes('/login')
+      originalRequest._retry
     ) {
       return Promise.reject(error)
     }
@@ -73,21 +43,20 @@ api.interceptors.response.use(
     originalRequest._retry = true
 
     if (!refreshPromise) {
-      refreshPromise = refreshAccessToken().finally(() => {
+      refreshPromise = refreshSession().finally(() => {
         refreshPromise = null
       })
     }
 
-    const accessToken = await refreshPromise
+    const refreshed = await refreshPromise
 
-    if (!accessToken) {
+    if (!refreshed) {
       if (typeof window !== 'undefined') {
         window.location.href = '/login'
       }
       return Promise.reject(error)
     }
 
-    originalRequest.headers.Authorization = `Bearer ${accessToken}`
     return api(originalRequest)
   },
 )

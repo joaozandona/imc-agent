@@ -289,6 +289,11 @@ export function UsersList({ initialData }: UsersListProps) {
                   </Table.Cell>
                   <Table.Cell>
                     <HStack justify="flex-end" gap={2}>
+                      {user.role === 'aluno' ? (
+                        <Button asChild size="xs" variant="outline" colorPalette="brand">
+                          <Link href={`/users/${user.id}/evolution`}>Evolução</Link>
+                        </Button>
+                      ) : null}
                       <Button asChild size="xs" variant="outline" colorPalette="brand">
                         <Link href={`/users/${user.id}/edit`}>Editar</Link>
                       </Button>

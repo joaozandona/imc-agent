@@ -17,10 +17,19 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { ListPagination } from '@/components/list-pagination'
+import {
+  SortableColumnHeader,
+  toggleSortOrder,
+} from '@/components/sortable-column-header'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { getApiErrorMessage } from '@/lib/api-error-message'
-import { deleteUser, listUsers } from '@/lib/users-api'
-import { DEFAULT_PAGE_SIZE } from '@/types/pagination'
+import { deleteUser, listUsers, type UserSortBy } from '@/lib/users-api'
+import {
+  DEFAULT_PAGE_SIZE,
+  DEFAULT_SORT_BY,
+  DEFAULT_SORT_ORDER,
+  type SortOrder,
+} from '@/types/pagination'
 import type { UserRole } from '@/types/user'
 
 const roleLabels: Record<UserRole, string> = {
@@ -35,6 +44,8 @@ export function UsersList() {
   const [page, setPage] = useState(1)
   const [nameFilter, setNameFilter] = useState('')
   const [usernameFilter, setUsernameFilter] = useState('')
+  const [sortBy, setSortBy] = useState<UserSortBy>(DEFAULT_SORT_BY)
+  const [sortOrder, setSortOrder] = useState<SortOrder>(DEFAULT_SORT_ORDER)
   const [actionError, setActionError] = useState<string | null>(null)
 
   const filters = useMemo(
@@ -43,8 +54,10 @@ export function UsersList() {
       limit: DEFAULT_PAGE_SIZE,
       name: nameFilter.trim() || undefined,
       username: usernameFilter.trim() || undefined,
+      sortBy,
+      sortOrder,
     }),
-    [page, nameFilter, usernameFilter],
+    [page, nameFilter, usernameFilter, sortBy, sortOrder],
   )
 
   const usersQuery = useQuery({
@@ -78,6 +91,13 @@ export function UsersList() {
   const clearFilters = () => {
     setNameFilter('')
     setUsernameFilter('')
+    setPage(1)
+  }
+
+  const handleSort = (column: UserSortBy) => {
+    const next = toggleSortOrder(sortBy, sortOrder, column)
+    setSortBy(next.sortBy as UserSortBy)
+    setSortOrder(next.sortOrder)
     setPage(1)
   }
 
@@ -179,10 +199,34 @@ export function UsersList() {
         <Table.Root size="sm">
           <Table.Header>
             <Table.Row>
-              <Table.ColumnHeader>Nome</Table.ColumnHeader>
-              <Table.ColumnHeader>Usuário</Table.ColumnHeader>
-              <Table.ColumnHeader>Perfil</Table.ColumnHeader>
-              <Table.ColumnHeader>Situação</Table.ColumnHeader>
+              <SortableColumnHeader
+                label="Nome"
+                column="name"
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+              />
+              <SortableColumnHeader
+                label="Usuário"
+                column="username"
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+              />
+              <SortableColumnHeader
+                label="Perfil"
+                column="role"
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+              />
+              <SortableColumnHeader
+                label="Situação"
+                column="status"
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+              />
               <Table.ColumnHeader textAlign="end">Ações</Table.ColumnHeader>
             </Table.Row>
           </Table.Header>
@@ -201,7 +245,21 @@ export function UsersList() {
                   <Table.Cell>{user.name}</Table.Cell>
                   <Table.Cell>{user.username}</Table.Cell>
                   <Table.Cell>{roleLabels[user.role]}</Table.Cell>
-                  <Table.Cell>{user.status}</Table.Cell>
+                  <Table.Cell>
+                    <Text
+                      as="span"
+                      display="inline-block"
+                      px={2}
+                      py={0.5}
+                      fontSize="xs"
+                      fontWeight="medium"
+                      borderRadius="md"
+                      bg={user.status === 'ativo' ? 'blue.100' : 'red.100'}
+                      color={user.status === 'ativo' ? 'blue.800' : 'red.800'}
+                    >
+                      {user.status === 'ativo' ? 'Ativo' : 'Inativo'}
+                    </Text>
+                  </Table.Cell>
                   <Table.Cell>
                     <HStack justify="flex-end" gap={2}>
                       <Button asChild size="xs" variant="outline" colorPalette="brand">

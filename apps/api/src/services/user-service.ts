@@ -1,13 +1,19 @@
-import { FindOptionsWhere, Like } from 'typeorm'
+import { FindOptionsOrder, FindOptionsWhere, Like } from 'typeorm'
 import { AppDataSource } from '../database/data-source'
 import { Assessment } from '../database/entities/Assessment'
 import { User, UserPerfil, UserSituacao } from '../database/entities/User'
 import { AppError } from '../errors/app-error'
-import { CreateUserData, ListUsersQuery, UpdateUserData } from '../schemas/user-schema'
+import {
+  CreateUserData,
+  ListUsersQuery,
+  UpdateUserData,
+  UserSortBy,
+} from '../schemas/user-schema'
 import {
   buildPaginationMeta,
   getPaginationSkip,
 } from '../schemas/pagination-schema'
+import { toTypeOrmOrder } from '../schemas/sort-schema'
 import { CurrentUser } from '../types/current-user'
 import { LoginService } from './login-service'
 
@@ -23,13 +29,21 @@ function toListUser(user: User) {
   }
 }
 
+const userSortFieldMap: Record<UserSortBy, keyof User> = {
+  name: 'nome',
+  username: 'usuario',
+  role: 'perfil',
+  status: 'situacao',
+  createdAt: 'createdAt',
+}
+
 export class UserService {
   private users = AppDataSource.getRepository(User)
   private assessments = AppDataSource.getRepository(Assessment)
   private loginService = new LoginService()
 
   async list(currentUser: CurrentUser, query: ListUsersQuery) {
-    const { page, limit } = query
+    const { page, limit, sortBy, sortOrder } = query
     const skip = getPaginationSkip(page, limit)
     const where = this.buildListWhere(currentUser, query)
 
@@ -37,9 +51,14 @@ export class UserService {
       throw new AppError('FORBIDDEN', 403, 'You do not have permission to list users')
     }
 
+    const orderField = userSortFieldMap[sortBy]
+    const order: FindOptionsOrder<User> = {
+      [orderField]: toTypeOrmOrder(sortOrder),
+    }
+
     const [users, total] = await this.users.findAndCount({
       where,
-      order: { createdAt: 'DESC' },
+      order,
       skip,
       take: limit,
     })

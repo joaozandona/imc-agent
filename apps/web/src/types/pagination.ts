@@ -15,5 +15,14 @@ export type PaginationParams = {
   limit?: number
 }
 
+export type SortOrder = 'asc' | 'desc'
+
+export type SortParams = {
+  sortBy?: string
+  sortOrder?: SortOrder
+}
+
 export const DEFAULT_PAGE_SIZE = 20
 export const SELECT_PAGE_SIZE = 100
+export const DEFAULT_SORT_BY = 'createdAt'
+export const DEFAULT_SORT_ORDER: SortOrder = 'desc'

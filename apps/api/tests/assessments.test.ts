@@ -181,6 +181,28 @@ describe('Assessments', () => {
     })
   })
 
+  it('sorts assessments by imc on the server', async () => {
+    await request(app)
+      .post('/assessments')
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({ studentId, height: 1.7, weight: 50 })
+
+    await request(app)
+      .post('/assessments')
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({ studentId, height: 1.7, weight: 90 })
+
+    const response = await request(app)
+      .get('/assessments')
+      .query({ sortBy: 'imc', sortOrder: 'asc', limit: 100 })
+      .set('Authorization', `Bearer ${professorToken}`)
+
+    expect(response.status).toBe(200)
+    const imcs = response.body.data.map((item: { imc: number }) => item.imc)
+    const sorted = [...imcs].sort((a, b) => a - b)
+    expect(imcs).toEqual(sorted)
+  })
+
   it('allows only admin to delete assessments', async () => {
     const created = await request(app)
       .post('/assessments')

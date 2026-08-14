@@ -1,9 +1,19 @@
 import { api } from './api'
 import type { ListUser, UserRole, UserStatus } from '@/types/user'
-import type { PaginatedResponse, PaginationParams } from '@/types/pagination'
-import { DEFAULT_PAGE_SIZE } from '@/types/pagination'
+import type {
+  PaginatedResponse,
+  PaginationParams,
+  SortParams,
+} from '@/types/pagination'
+import {
+  DEFAULT_PAGE_SIZE,
+  DEFAULT_SORT_BY,
+  DEFAULT_SORT_ORDER,
+} from '@/types/pagination'
 
 export type { ListUser }
+
+export type UserSortBy = 'name' | 'username' | 'role' | 'status' | 'createdAt'
 
 export type CreateUserInput = {
   name: string
@@ -21,10 +31,12 @@ export type UpdateUserInput = {
   status?: UserStatus
 }
 
-export type ListUsersParams = PaginationParams & {
-  name?: string
-  username?: string
-}
+export type ListUsersParams = PaginationParams &
+  SortParams & {
+    name?: string
+    username?: string
+    sortBy?: UserSortBy
+  }
 
 export async function listUsers(params: ListUsersParams = {}) {
   const { data } = await api.get<PaginatedResponse<ListUser>>('/users', {
@@ -33,6 +45,8 @@ export async function listUsers(params: ListUsersParams = {}) {
       limit: params.limit ?? DEFAULT_PAGE_SIZE,
       name: params.name || undefined,
       username: params.username || undefined,
+      sortBy: params.sortBy ?? DEFAULT_SORT_BY,
+      sortOrder: params.sortOrder ?? DEFAULT_SORT_ORDER,
     },
   })
   return data

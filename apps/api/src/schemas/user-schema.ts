@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { paginationQuerySchema } from './pagination-schema'
+import { sortOrderSchema } from './sort-schema'
 
 export const createUserSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório').max(60),
@@ -17,11 +18,18 @@ export const updateUserSchema = z.object({
   status: z.enum(['ativo', 'inativo']).optional(),
 })
 
+export const userSortBySchema = z
+  .enum(['name', 'username', 'role', 'status', 'createdAt'])
+  .default('createdAt')
+
 export const listUsersQuerySchema = paginationQuerySchema.extend({
   name: z.string().trim().optional(),
   username: z.string().trim().optional(),
+  sortBy: userSortBySchema,
+  sortOrder: sortOrderSchema,
 })
 
 export type CreateUserData = z.infer<typeof createUserSchema>
 export type UpdateUserData = z.infer<typeof updateUserSchema>
 export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>
+export type UserSortBy = z.infer<typeof userSortBySchema>

@@ -5,13 +5,32 @@ import type {
   ListAssessmentsFilters,
   UpdateAssessmentInput,
 } from '@/types/assessment'
-import type { PaginatedResponse, PaginationParams } from '@/types/pagination'
-import { DEFAULT_PAGE_SIZE } from '@/types/pagination'
+import type {
+  PaginatedResponse,
+  PaginationParams,
+  SortParams,
+} from '@/types/pagination'
+import {
+  DEFAULT_PAGE_SIZE,
+  DEFAULT_SORT_BY,
+  DEFAULT_SORT_ORDER,
+} from '@/types/pagination'
 
 export type { Assessment }
 
+export type AssessmentSortBy =
+  | 'createdAt'
+  | 'height'
+  | 'weight'
+  | 'imc'
+  | 'classification'
+  | 'student'
+  | 'evaluator'
+
 export async function listAssessments(
-  filters: ListAssessmentsFilters & PaginationParams = {},
+  filters: ListAssessmentsFilters &
+    PaginationParams &
+    SortParams & { sortBy?: AssessmentSortBy } = {},
 ) {
   const { data } = await api.get<PaginatedResponse<Assessment>>('/assessments', {
     params: {
@@ -19,6 +38,8 @@ export async function listAssessments(
       idUsuarioAvaliacao: filters.idUsuarioAvaliacao || undefined,
       page: filters.page ?? 1,
       limit: filters.limit ?? DEFAULT_PAGE_SIZE,
+      sortBy: filters.sortBy ?? DEFAULT_SORT_BY,
+      sortOrder: filters.sortOrder ?? DEFAULT_SORT_ORDER,
     },
   })
   return data

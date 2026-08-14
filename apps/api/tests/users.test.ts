@@ -241,4 +241,38 @@ describe('Users', () => {
     expect(byUsername.body.data).toHaveLength(1)
     expect(byUsername.body.data[0].username).toBe('bruno')
   })
+
+  it('sorts users by name across the full dataset', async () => {
+    const adminToken = await loginAs('admin', 'admin123')
+
+    await request(app)
+      .post('/users')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        name: 'Zack',
+        username: 'zack',
+        password: '123456',
+        role: 'aluno',
+      })
+
+    await request(app)
+      .post('/users')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        name: 'Abel',
+        username: 'abel',
+        password: '123456',
+        role: 'aluno',
+      })
+
+    const response = await request(app)
+      .get('/users')
+      .query({ sortBy: 'name', sortOrder: 'asc', limit: 100 })
+      .set('Authorization', `Bearer ${adminToken}`)
+
+    expect(response.status).toBe(200)
+    const names = response.body.data.map((user: { name: string }) => user.name)
+    const sorted = [...names].sort((a, b) => a.localeCompare(b))
+    expect(names).toEqual(sorted)
+  })
 })

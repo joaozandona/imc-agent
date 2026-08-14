@@ -17,15 +17,26 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { ListPagination } from '@/components/list-pagination'
+import {
+  SortableColumnHeader,
+  toggleSortOrder,
+} from '@/components/sortable-column-header'
 import { StudentCombobox } from '@/components/student-combobox'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import {
   deleteAssessment,
   listAssessments,
+  type AssessmentSortBy,
 } from '@/lib/assessments-api'
 import { getApiErrorMessage } from '@/lib/api-error-message'
 import { listUsers } from '@/lib/users-api'
-import { DEFAULT_PAGE_SIZE, SELECT_PAGE_SIZE } from '@/types/pagination'
+import {
+  DEFAULT_PAGE_SIZE,
+  DEFAULT_SORT_BY,
+  DEFAULT_SORT_ORDER,
+  SELECT_PAGE_SIZE,
+  type SortOrder,
+} from '@/types/pagination'
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString('pt-BR')
@@ -38,6 +49,8 @@ export function AssessmentsList() {
   const [studentFilterKey, setStudentFilterKey] = useState(0)
   const [evaluatorId, setEvaluatorId] = useState('')
   const [page, setPage] = useState(1)
+  const [sortBy, setSortBy] = useState<AssessmentSortBy>(DEFAULT_SORT_BY)
+  const [sortOrder, setSortOrder] = useState<SortOrder>(DEFAULT_SORT_ORDER)
   const [actionError, setActionError] = useState<string | null>(null)
 
   const isAdmin = currentUser?.role === 'admin'
@@ -57,8 +70,10 @@ export function AssessmentsList() {
       idUsuarioAvaliacao: isAdmin && evaluatorId ? evaluatorId : undefined,
       page,
       limit: DEFAULT_PAGE_SIZE,
+      sortBy,
+      sortOrder,
     }),
-    [studentId, evaluatorId, isAdmin, page],
+    [studentId, evaluatorId, isAdmin, page, sortBy, sortOrder],
   )
 
   const assessmentsQuery = useQuery({
@@ -110,6 +125,13 @@ export function AssessmentsList() {
 
   const handleStudentIdChange = (id: string) => {
     setStudentId(id)
+    setPage(1)
+  }
+
+  const handleSort = (column: AssessmentSortBy) => {
+    const next = toggleSortOrder(sortBy, sortOrder, column)
+    setSortBy(next.sortBy as AssessmentSortBy)
+    setSortOrder(next.sortOrder)
     setPage(1)
   }
 
@@ -229,17 +251,59 @@ export function AssessmentsList() {
         <Table.Root size="sm">
           <Table.Header>
             <Table.Row>
-              <Table.ColumnHeader>Data</Table.ColumnHeader>
+              <SortableColumnHeader
+                label="Data"
+                column="createdAt"
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+              />
               {!isAluno ? (
-                <Table.ColumnHeader>Aluno</Table.ColumnHeader>
+                <SortableColumnHeader
+                  label="Aluno"
+                  column="student"
+                  sortBy={sortBy}
+                  sortOrder={sortOrder}
+                  onSort={handleSort}
+                />
               ) : null}
               {!isAluno ? (
-                <Table.ColumnHeader>Avaliador</Table.ColumnHeader>
+                <SortableColumnHeader
+                  label="Avaliador"
+                  column="evaluator"
+                  sortBy={sortBy}
+                  sortOrder={sortOrder}
+                  onSort={handleSort}
+                />
               ) : null}
-              <Table.ColumnHeader>Altura</Table.ColumnHeader>
-              <Table.ColumnHeader>Peso</Table.ColumnHeader>
-              <Table.ColumnHeader>IMC</Table.ColumnHeader>
-              <Table.ColumnHeader>Classificação</Table.ColumnHeader>
+              <SortableColumnHeader
+                label="Altura"
+                column="height"
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+              />
+              <SortableColumnHeader
+                label="Peso"
+                column="weight"
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+              />
+              <SortableColumnHeader
+                label="IMC"
+                column="imc"
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+              />
+              <SortableColumnHeader
+                label="Classificação"
+                column="classification"
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+              />
               {canManage ? (
                 <Table.ColumnHeader textAlign="end">Ações</Table.ColumnHeader>
               ) : null}

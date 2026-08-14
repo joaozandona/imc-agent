@@ -1,10 +1,11 @@
 import { calculateImc, classifyImc } from '@imc/shared'
-import { FindOptionsWhere } from 'typeorm'
+import { FindOptionsOrder, FindOptionsWhere } from 'typeorm'
 import { AppDataSource } from '../database/data-source'
 import { Assessment } from '../database/entities/Assessment'
 import { User, UserPerfil, UserSituacao } from '../database/entities/User'
 import { AppError } from '../errors/app-error'
 import {
+  AssessmentSortBy,
   CreateAssessmentData,
   ListAssessmentsQuery,
   UpdateAssessmentData,
@@ -13,6 +14,7 @@ import {
   buildPaginationMeta,
   getPaginationSkip,
 } from '../schemas/pagination-schema'
+import { SortOrder, toTypeOrmOrder } from '../schemas/sort-schema'
 import { CurrentUser } from '../types/current-user'
 
 const assessmentRelations = {
@@ -49,6 +51,34 @@ function toSavedAssessment(assessment: Assessment) {
     classification: assessment.classificacao,
     createdAt: assessment.createdAt,
   }
+}
+
+function buildAssessmentOrder(
+  sortBy: AssessmentSortBy,
+  sortOrder: SortOrder,
+): FindOptionsOrder<Assessment> {
+  const direction = toTypeOrmOrder(sortOrder)
+
+  if (sortBy === 'student') {
+    return { usuarioAluno: { nome: direction } }
+  }
+
+  if (sortBy === 'evaluator') {
+    return { usuarioAvaliacao: { nome: direction } }
+  }
+
+  const fieldMap: Record<
+    Exclude<AssessmentSortBy, 'student' | 'evaluator'>,
+    keyof Assessment
+  > = {
+    createdAt: 'createdAt',
+    height: 'altura',
+    weight: 'peso',
+    imc: 'imc',
+    classification: 'classificacao',
+  }
+
+  return { [fieldMap[sortBy]]: direction }
 }
 
 export class AssessmentService {
@@ -99,13 +129,13 @@ export class AssessmentService {
       where.idUsuarioAvaliacao = query.idUsuarioAvaliacao
     }
 
-    const { page, limit } = query
+    const { page, limit, sortBy, sortOrder } = query
     const skip = getPaginationSkip(page, limit)
 
     const [assessments, total] = await this.assessments.findAndCount({
       where,
       relations: assessmentRelations,
-      order: { createdAt: 'DESC' },
+      order: buildAssessmentOrder(sortBy, sortOrder),
       skip,
       take: limit,
     })

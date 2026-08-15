@@ -10,9 +10,12 @@
     "test:watch": "vitest",
     "migration:generate": "tsx ./node_modules/typeorm/cli.js migration:generate -d ./src/database/data-source.ts",
     "migration:run": "tsx ./node_modules/typeorm/cli.js migration:run -d ./src/database/data-source.ts",
+    "migration:run:prod": "node dist/scripts/run-migrations.js",
     "migration:revert": "tsx ./node_modules/typeorm/cli.js migration:revert -d ./src/database/data-source.ts",
     "seed:admin": "tsx src/scripts/seed-admin.ts",
-    "seed:demo": "tsx src/scripts/seed-demo-evolution.ts"
+    "seed:admin:prod": "node dist/scripts/seed-admin.js",
+    "seed:demo": "tsx src/scripts/seed-demo-evolution.ts",
+    "seed:demo:prod": "node dist/scripts/seed-demo-evolution.js"
   },
   "dependencies": {
     "@imc/shared": "*",

@@ -6,6 +6,7 @@ import {
   HStack,
   Portal,
   Text,
+  chakra,
   useFilter,
   useListCollection,
 } from '@chakra-ui/react'
@@ -138,16 +139,18 @@ export function ProfessorMultiCombobox({
               fontSize="sm"
             >
               <Text as="span">{professor.name}</Text>
-              <Box
-                as="button"
+              <chakra.button
                 type="button"
                 aria-label={`Remover ${professor.name}`}
                 cursor="pointer"
                 lineHeight={1}
+                bg="transparent"
+                border="none"
+                p={0}
                 onClick={() => removeProfessor(professor.id)}
               >
                 ×
-              </Box>
+              </chakra.button>
             </HStack>
           ))}
         </HStack>

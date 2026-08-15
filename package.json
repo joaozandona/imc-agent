@@ -14,7 +14,9 @@
     "test:load:smoke": "k6 run k6/smoke.js",
     "test:load": "k6 run k6/load.js",
     "test:load:login": "k6 run k6/login-burst.js",
-    "test:load:sessions": "k6 run k6/load-multi-session.js"
+    "test:load:sessions": "k6 run k6/load-multi-session.js",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down"
   },
   "keywords": [],
   "author": "",

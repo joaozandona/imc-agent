@@ -7,10 +7,21 @@ import {
 } from '@/lib/auth-cookies'
 import type { User } from '@/types/user'
 
+const ALLOWED_PROXY_ROOTS = new Set(['users', 'assessments', 'audit-logs'])
+
 type RefreshApiResponse = {
   accessToken: string
   refreshToken: string
   user: User
+}
+
+function isAllowedProxyPath(path: string[]) {
+  if (path.length === 0) return false
+  if (path.some((segment) => !segment || segment === '.' || segment === '..')) {
+    return false
+  }
+
+  return ALLOWED_PROXY_ROOTS.has(path[0])
 }
 
 async function refreshTokens(refreshToken: string) {
@@ -59,6 +70,13 @@ async function proxyRequest(
   path: string[],
   retried = false,
 ): Promise<NextResponse> {
+  if (!isAllowedProxyPath(path)) {
+    return NextResponse.json(
+      { code: 'NOT_FOUND', message: 'Route not found' },
+      { status: 404 },
+    )
+  }
+
   const targetPath = path.join('/')
   const url = new URL(request.url)
   const targetUrl = `${getApiBaseUrl()}/${targetPath}${url.search}`

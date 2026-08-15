@@ -9,6 +9,8 @@ export function sendError(res: Response, error: unknown) {
     })
   }
 
+  console.error(error)
+
   return res.status(500).json({
     code: 'INTERNAL_ERROR',
     message: 'Internal server error',

@@ -1,4 +1,4 @@
-import { In } from 'typeorm'
+import { EntityManager, In } from 'typeorm'
 import { AppDataSource } from '../database/data-source'
 import { ProfessorStudent } from '../database/entities/ProfessorStudent'
 import { User, UserPerfil } from '../database/entities/User'
@@ -8,31 +8,40 @@ export class ProfessorStudentService {
   private links = AppDataSource.getRepository(ProfessorStudent)
   private users = AppDataSource.getRepository(User)
 
-  async isLinked(professorId: string, studentId: string) {
-    const link = await this.links.findOne({
+  private getLinks(manager?: EntityManager) {
+    return manager ? manager.getRepository(ProfessorStudent) : this.links
+  }
+
+  private getUsers(manager?: EntityManager) {
+    return manager ? manager.getRepository(User) : this.users
+  }
+
+  async isLinked(professorId: string, studentId: string, manager?: EntityManager) {
+    const link = await this.getLinks(manager).findOne({
       where: { idProfessor: professorId, idAluno: studentId },
     })
     return Boolean(link)
   }
 
-  async listStudentIdsForProfessor(professorId: string) {
-    const rows = await this.links.find({
+  async listStudentIdsForProfessor(professorId: string, manager?: EntityManager) {
+    const rows = await this.getLinks(manager).find({
       where: { idProfessor: professorId },
       select: { idAluno: true },
     })
     return rows.map((row) => row.idAluno)
   }
 
-  async listProfessorIdsForStudent(studentId: string) {
-    const rows = await this.links.find({
+  async listProfessorIdsForStudent(studentId: string, manager?: EntityManager) {
+    const rows = await this.getLinks(manager).find({
       where: { idAluno: studentId },
       select: { idProfessor: true },
     })
     return rows.map((row) => row.idProfessor)
   }
 
-  async addLink(professorId: string, studentId: string) {
-    const existing = await this.links.findOne({
+  async addLink(professorId: string, studentId: string, manager?: EntityManager) {
+    const links = this.getLinks(manager)
+    const existing = await links.findOne({
       where: { idProfessor: professorId, idAluno: studentId },
     })
 
@@ -40,23 +49,29 @@ export class ProfessorStudentService {
       return existing
     }
 
-    const link = this.links.create({
+    const link = links.create({
       idProfessor: professorId,
       idAluno: studentId,
     })
 
-    return this.links.save(link)
+    return links.save(link)
   }
 
-  async removeLink(professorId: string, studentId: string) {
-    await this.links.delete({ idProfessor: professorId, idAluno: studentId })
+  async removeLink(professorId: string, studentId: string, manager?: EntityManager) {
+    await this.getLinks(manager).delete({ idProfessor: professorId, idAluno: studentId })
   }
 
-  async setLinksForStudent(studentId: string, professorIds: string[]) {
+  async setLinksForStudent(
+    studentId: string,
+    professorIds: string[],
+    manager?: EntityManager,
+  ) {
+    const links = this.getLinks(manager)
+    const users = this.getUsers(manager)
     const uniqueIds = [...new Set(professorIds)]
 
     if (uniqueIds.length > 0) {
-      const professors = await this.users.find({
+      const professors = await users.find({
         where: { id: In(uniqueIds), perfil: UserPerfil.PROFESSOR },
       })
 
@@ -69,21 +84,22 @@ export class ProfessorStudentService {
       }
     }
 
-    await this.links.delete({ idAluno: studentId })
+    await links.delete({ idAluno: studentId })
 
     if (uniqueIds.length === 0) {
       return
     }
 
     const rows = uniqueIds.map((idProfessor) =>
-      this.links.create({ idProfessor, idAluno: studentId }),
+      links.create({ idProfessor, idAluno: studentId }),
     )
 
-    await this.links.save(rows)
+    await links.save(rows)
   }
 
-  async deleteAllForUser(userId: string) {
-    await this.links.delete({ idProfessor: userId })
-    await this.links.delete({ idAluno: userId })
+  async deleteAllForUser(userId: string, manager?: EntityManager) {
+    const links = this.getLinks(manager)
+    await links.delete({ idProfessor: userId })
+    await links.delete({ idAluno: userId })
   }
 }

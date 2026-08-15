@@ -1,4 +1,4 @@
-import { FindOptionsWhere, Like } from 'typeorm'
+import { EntityManager, FindOptionsWhere, Like } from 'typeorm'
 import { AppDataSource } from '../database/data-source'
 import { AuditLog } from '../database/entities/AuditLog'
 import { User, UserPerfil } from '../database/entities/User'
@@ -86,14 +86,24 @@ export class AuditService {
   private logs = AppDataSource.getRepository(AuditLog)
   private users = AppDataSource.getRepository(User)
 
-  async record(input: AuditRecordInput) {
-    const actor = await this.users.findOne({ where: { id: input.actorId } })
+  private getLogs(manager?: EntityManager) {
+    return manager ? manager.getRepository(AuditLog) : this.logs
+  }
+
+  private getUsers(manager?: EntityManager) {
+    return manager ? manager.getRepository(User) : this.users
+  }
+
+  async record(input: AuditRecordInput, manager?: EntityManager) {
+    const users = this.getUsers(manager)
+    const logs = this.getLogs(manager)
+    const actor = await users.findOne({ where: { id: input.actorId } })
 
     const metadata = input.metadata
       ? JSON.stringify(sanitizeMetadata(input.metadata))
       : null
 
-    const row = this.logs.create({
+    const row = logs.create({
       actorId: input.actorId,
       actorName: actor?.nome ?? 'unknown',
       actorUsername: actor?.usuario ?? 'unknown',
@@ -103,7 +113,7 @@ export class AuditService {
       metadata,
     })
 
-    await this.logs.save(row)
+    await logs.save(row)
   }
 
   async list(currentUser: CurrentUser, query: ListAuditLogsQuery) {

@@ -1,4 +1,4 @@
-import { FindOptionsOrder, FindOptionsWhere, In, Like } from 'typeorm'
+import { EntityManager, FindOptionsOrder, FindOptionsWhere, In, Like } from 'typeorm'
 import { AppDataSource } from '../database/data-source'
 import { Assessment } from '../database/entities/Assessment'
 import { User, UserPerfil, UserSituacao } from '../database/entities/User'
@@ -167,58 +167,76 @@ export class UserService {
       throw new AppError('USERNAME_TAKEN', 409, 'Username is already taken')
     }
 
-    const user = this.users.create({
-      nome: data.name,
-      usuario: data.username,
-      senha: await this.loginService.hashPassword(data.password),
-      perfil: data.role as UserPerfil,
-      situacao: (data.status as UserSituacao) ?? UserSituacao.ATIVO,
-    })
+    const passwordHash = await this.loginService.hashPassword(data.password)
 
-    await this.users.save(user)
+    return AppDataSource.transaction(async (manager) => {
+      const users = manager.getRepository(User)
+      const user = users.create({
+        nome: data.name,
+        usuario: data.username,
+        senha: passwordHash,
+        perfil: data.role as UserPerfil,
+        situacao: (data.status as UserSituacao) ?? UserSituacao.ATIVO,
+      })
 
-    if (user.perfil === UserPerfil.ALUNO) {
-      if (currentUser.role === UserPerfil.PROFESSOR) {
-        await this.professorStudents.addLink(currentUser.id, user.id)
-        await this.auditService.record({
-          actorId: currentUser.id,
-          action: 'professor_student.link',
-          entity: 'professor_student',
-          entityId: user.id,
-          metadata: {
-            professorId: currentUser.id,
-            studentId: user.id,
-          },
-        })
-      } else if (data.professorIds) {
-        await this.professorStudents.setLinksForStudent(user.id, data.professorIds)
-        await this.auditService.record({
-          actorId: currentUser.id,
-          action: 'professor_student.set_links',
-          entity: 'professor_student',
-          entityId: user.id,
-          metadata: {
-            studentId: user.id,
-            professorIds: data.professorIds,
-          },
-        })
+      await users.save(user)
+
+      if (user.perfil === UserPerfil.ALUNO) {
+        if (currentUser.role === UserPerfil.PROFESSOR) {
+          await this.professorStudents.addLink(currentUser.id, user.id, manager)
+          await this.auditService.record(
+            {
+              actorId: currentUser.id,
+              action: 'professor_student.link',
+              entity: 'professor_student',
+              entityId: user.id,
+              metadata: {
+                professorId: currentUser.id,
+                studentId: user.id,
+              },
+            },
+            manager,
+          )
+        } else if (data.professorIds) {
+          await this.professorStudents.setLinksForStudent(
+            user.id,
+            data.professorIds,
+            manager,
+          )
+          await this.auditService.record(
+            {
+              actorId: currentUser.id,
+              action: 'professor_student.set_links',
+              entity: 'professor_student',
+              entityId: user.id,
+              metadata: {
+                studentId: user.id,
+                professorIds: data.professorIds,
+              },
+            },
+            manager,
+          )
+        }
       }
-    }
 
-    await this.auditService.record({
-      actorId: currentUser.id,
-      action: 'user.create',
-      entity: 'user',
-      entityId: user.id,
-      metadata: {
-        name: user.nome,
-        username: user.usuario,
-        role: user.perfil,
-        status: user.situacao,
-      },
+      await this.auditService.record(
+        {
+          actorId: currentUser.id,
+          action: 'user.create',
+          entity: 'user',
+          entityId: user.id,
+          metadata: {
+            name: user.nome,
+            username: user.usuario,
+            role: user.perfil,
+            status: user.situacao,
+          },
+        },
+        manager,
+      )
+
+      return this.toDetailedUser(currentUser, user, manager)
     })
-
-    return this.toDetailedUser(currentUser, user)
   }
 
   async update(currentUser: CurrentUser, id: string, data: UpdateUserData) {
@@ -240,77 +258,96 @@ export class UserService {
       }
     }
 
-    const before = {
-      name: user.nome,
-      username: user.usuario,
-      role: user.perfil,
-      status: user.situacao,
-    }
-
     if (data.username && data.username !== user.usuario) {
       const existing = await this.users.findOne({ where: { usuario: data.username } })
       if (existing) {
         throw new AppError('USERNAME_TAKEN', 409, 'Username is already taken')
       }
-      user.usuario = data.username
     }
 
-    if (data.name) user.nome = data.name
-    if (data.role) user.perfil = data.role as UserPerfil
-    if (data.status) user.situacao = data.status as UserSituacao
-    const passwordChanged = Boolean(data.password)
-    if (data.password) {
-      user.senha = await this.loginService.hashPassword(data.password)
-    }
+    const passwordHash = data.password
+      ? await this.loginService.hashPassword(data.password)
+      : undefined
 
-    await this.users.save(user)
+    return AppDataSource.transaction(async (manager) => {
+      const users = manager.getRepository(User)
+      const managed = await users.findOne({ where: { id } })
 
-    if (user.situacao === UserSituacao.INATIVO) {
-      await this.tokenService.revokeAllForUser(user.id)
-    }
-
-    if (user.perfil === UserPerfil.ALUNO) {
-      await this.syncStudentLinks(currentUser, user.id, data)
-    } else if (data.professorIds !== undefined || data.linkMyself !== undefined) {
-      await this.professorStudents.deleteAllForUser(user.id)
-    }
-
-    const after = {
-      name: user.nome,
-      username: user.usuario,
-      role: user.perfil,
-      status: user.situacao,
-    }
-
-    const changes: Record<string, unknown> = {}
-
-    for (const key of ['name', 'username', 'role', 'status'] as const) {
-      if (before[key] !== after[key]) {
-        changes[key] = { from: before[key], to: after[key] }
+      if (!managed) {
+        throw new AppError('USER_NOT_FOUND', 404, 'User not found')
       }
-    }
 
-    if (passwordChanged) {
-      changes.passwordChanged = true
-    }
+      const before = {
+        name: managed.nome,
+        username: managed.usuario,
+        role: managed.perfil,
+        status: managed.situacao,
+      }
 
-    if (data.linkMyself !== undefined) {
-      changes.linkMyself = data.linkMyself
-    }
+      if (data.username && data.username !== managed.usuario) {
+        managed.usuario = data.username
+      }
 
-    if (data.professorIds !== undefined) {
-      changes.professorIds = data.professorIds
-    }
+      if (data.name) managed.nome = data.name
+      if (data.role) managed.perfil = data.role as UserPerfil
+      if (data.status) managed.situacao = data.status as UserSituacao
+      const passwordChanged = Boolean(passwordHash)
+      if (passwordHash) {
+        managed.senha = passwordHash
+      }
 
-    await this.auditService.record({
-      actorId: currentUser.id,
-      action: 'user.update',
-      entity: 'user',
-      entityId: user.id,
-      metadata: { changes },
+      await users.save(managed)
+
+      if (managed.situacao === UserSituacao.INATIVO) {
+        await this.tokenService.revokeAllForUser(managed.id, manager)
+      }
+
+      if (managed.perfil === UserPerfil.ALUNO) {
+        await this.syncStudentLinks(currentUser, managed.id, data, manager)
+      } else if (data.professorIds !== undefined || data.linkMyself !== undefined) {
+        await this.professorStudents.deleteAllForUser(managed.id, manager)
+      }
+
+      const after = {
+        name: managed.nome,
+        username: managed.usuario,
+        role: managed.perfil,
+        status: managed.situacao,
+      }
+
+      const changes: Record<string, unknown> = {}
+
+      for (const key of ['name', 'username', 'role', 'status'] as const) {
+        if (before[key] !== after[key]) {
+          changes[key] = { from: before[key], to: after[key] }
+        }
+      }
+
+      if (passwordChanged) {
+        changes.passwordChanged = true
+      }
+
+      if (data.linkMyself !== undefined) {
+        changes.linkMyself = data.linkMyself
+      }
+
+      if (data.professorIds !== undefined) {
+        changes.professorIds = data.professorIds
+      }
+
+      await this.auditService.record(
+        {
+          actorId: currentUser.id,
+          action: 'user.update',
+          entity: 'user',
+          entityId: managed.id,
+          metadata: { changes },
+        },
+        manager,
+      )
+
+      return this.toDetailedUser(currentUser, managed, manager)
     })
-
-    return this.toDetailedUser(currentUser, user)
   }
 
   async delete(currentUser: CurrentUser, id: string) {
@@ -334,41 +371,55 @@ export class UserService {
       )
     }
 
-    await this.professorStudents.deleteAllForUser(id)
+    await AppDataSource.transaction(async (manager) => {
+      await this.professorStudents.deleteAllForUser(id, manager)
+      await this.tokenService.revokeAllForUser(id, manager)
 
-    await this.auditService.record({
-      actorId: currentUser.id,
-      action: 'user.delete',
-      entity: 'user',
-      entityId: user.id,
-      metadata: {
-        name: user.nome,
-        username: user.usuario,
-        role: user.perfil,
-        status: user.situacao,
-      },
+      await this.auditService.record(
+        {
+          actorId: currentUser.id,
+          action: 'user.delete',
+          entity: 'user',
+          entityId: user.id,
+          metadata: {
+            name: user.nome,
+            username: user.usuario,
+            role: user.perfil,
+            status: user.situacao,
+          },
+        },
+        manager,
+      )
+
+      await manager.getRepository(User).remove(user)
     })
-
-    await this.users.remove(user)
   }
 
   private async syncStudentLinks(
     currentUser: CurrentUser,
     studentId: string,
     data: UpdateUserData,
+    manager: EntityManager,
   ) {
     if (currentUser.role === UserPerfil.ADMIN && data.professorIds !== undefined) {
-      await this.professorStudents.setLinksForStudent(studentId, data.professorIds)
-      await this.auditService.record({
-        actorId: currentUser.id,
-        action: 'professor_student.set_links',
-        entity: 'professor_student',
-        entityId: studentId,
-        metadata: {
-          studentId,
-          professorIds: data.professorIds,
+      await this.professorStudents.setLinksForStudent(
+        studentId,
+        data.professorIds,
+        manager,
+      )
+      await this.auditService.record(
+        {
+          actorId: currentUser.id,
+          action: 'professor_student.set_links',
+          entity: 'professor_student',
+          entityId: studentId,
+          metadata: {
+            studentId,
+            professorIds: data.professorIds,
+          },
         },
-      })
+        manager,
+      )
       return
     }
 
@@ -382,44 +433,58 @@ export class UserService {
       }
 
       if (data.linkMyself) {
-        await this.professorStudents.addLink(currentUser.id, studentId)
-        await this.auditService.record({
-          actorId: currentUser.id,
-          action: 'professor_student.link',
-          entity: 'professor_student',
-          entityId: studentId,
-          metadata: {
-            professorId: currentUser.id,
-            studentId,
+        await this.professorStudents.addLink(currentUser.id, studentId, manager)
+        await this.auditService.record(
+          {
+            actorId: currentUser.id,
+            action: 'professor_student.link',
+            entity: 'professor_student',
+            entityId: studentId,
+            metadata: {
+              professorId: currentUser.id,
+              studentId,
+            },
           },
-        })
+          manager,
+        )
       } else {
-        await this.professorStudents.removeLink(currentUser.id, studentId)
-        await this.auditService.record({
-          actorId: currentUser.id,
-          action: 'professor_student.unlink',
-          entity: 'professor_student',
-          entityId: studentId,
-          metadata: {
-            professorId: currentUser.id,
-            studentId,
+        await this.professorStudents.removeLink(currentUser.id, studentId, manager)
+        await this.auditService.record(
+          {
+            actorId: currentUser.id,
+            action: 'professor_student.unlink',
+            entity: 'professor_student',
+            entityId: studentId,
+            metadata: {
+              professorId: currentUser.id,
+              studentId,
+            },
           },
-        })
+          manager,
+        )
       }
     }
   }
 
-  private async toDetailedUser(currentUser: CurrentUser, user: User): Promise<UserResponse> {
+  private async toDetailedUser(
+    currentUser: CurrentUser,
+    user: User,
+    manager?: EntityManager,
+  ): Promise<UserResponse> {
     const item = toListUser(user)
+    const users = manager ? manager.getRepository(User) : this.users
 
     if (user.perfil === UserPerfil.ALUNO) {
-      const professorIds = await this.professorStudents.listProfessorIdsForStudent(user.id)
+      const professorIds = await this.professorStudents.listProfessorIdsForStudent(
+        user.id,
+        manager,
+      )
 
       if (currentUser.role === UserPerfil.ADMIN) {
         item.professorIds = professorIds
 
         if (professorIds.length > 0) {
-          const professors = await this.users.find({
+          const professors = await users.find({
             where: { id: In(professorIds) },
             select: { id: true, nome: true },
           })

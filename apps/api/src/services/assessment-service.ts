@@ -215,32 +215,38 @@ export class AssessmentService {
     const imc = calculateImc(data.height, data.weight)
     const classification = classifyImc(imc)
 
-    const assessment = this.assessments.create({
-      altura: data.height,
-      peso: data.weight,
-      imc,
-      classificacao: classification,
-      idUsuarioAvaliacao: currentUser.id,
-      idUsuarioAluno: student.id,
-    })
-
-    await this.assessments.save(assessment)
-
-    await this.auditService.record({
-      actorId: currentUser.id,
-      action: 'assessment.create',
-      entity: 'assessment',
-      entityId: assessment.id,
-      metadata: {
-        studentId: student.id,
-        height: data.height,
-        weight: data.weight,
+    return AppDataSource.transaction(async (manager) => {
+      const assessments = manager.getRepository(Assessment)
+      const assessment = assessments.create({
+        altura: data.height,
+        peso: data.weight,
         imc,
-        classification,
-      },
-    })
+        classificacao: classification,
+        idUsuarioAvaliacao: currentUser.id,
+        idUsuarioAluno: student.id,
+      })
 
-    return toSavedAssessment(assessment)
+      await assessments.save(assessment)
+
+      await this.auditService.record(
+        {
+          actorId: currentUser.id,
+          action: 'assessment.create',
+          entity: 'assessment',
+          entityId: assessment.id,
+          metadata: {
+            studentId: student.id,
+            height: data.height,
+            weight: data.weight,
+            imc,
+            classification,
+          },
+        },
+        manager,
+      )
+
+      return toSavedAssessment(assessment)
+    })
   }
 
   async update(currentUser: CurrentUser, id: string, data: UpdateAssessmentData) {
@@ -255,29 +261,42 @@ export class AssessmentService {
     const height = data.height ?? Number(assessment.altura)
     const weight = data.weight ?? Number(assessment.peso)
     const imc = calculateImc(height, weight)
+    const classification = classifyImc(imc)
 
-    assessment.altura = height
-    assessment.peso = weight
-    assessment.imc = imc
-    assessment.classificacao = classifyImc(imc)
+    return AppDataSource.transaction(async (manager) => {
+      const assessments = manager.getRepository(Assessment)
+      const managed = await assessments.findOne({ where: { id } })
 
-    await this.assessments.save(assessment)
+      if (!managed) {
+        throw new AppError('ASSESSMENT_NOT_FOUND', 404, 'Assessment not found')
+      }
 
-    await this.auditService.record({
-      actorId: currentUser.id,
-      action: 'assessment.update',
-      entity: 'assessment',
-      entityId: assessment.id,
-      metadata: {
-        studentId: assessment.idUsuarioAluno,
-        height,
-        weight,
-        imc,
-        classification: assessment.classificacao,
-      },
+      managed.altura = height
+      managed.peso = weight
+      managed.imc = imc
+      managed.classificacao = classification
+
+      await assessments.save(managed)
+
+      await this.auditService.record(
+        {
+          actorId: currentUser.id,
+          action: 'assessment.update',
+          entity: 'assessment',
+          entityId: managed.id,
+          metadata: {
+            studentId: managed.idUsuarioAluno,
+            height,
+            weight,
+            imc,
+            classification: managed.classificacao,
+          },
+        },
+        manager,
+      )
+
+      return toSavedAssessment(managed)
     })
-
-    return toSavedAssessment(assessment)
   }
 
   async delete(currentUser: CurrentUser, id: string) {
@@ -291,22 +310,27 @@ export class AssessmentService {
       throw new AppError('ASSESSMENT_NOT_FOUND', 404, 'Assessment not found')
     }
 
-    await this.auditService.record({
-      actorId: currentUser.id,
-      action: 'assessment.delete',
-      entity: 'assessment',
-      entityId: assessment.id,
-      metadata: {
-        studentId: assessment.idUsuarioAluno,
-        evaluatorId: assessment.idUsuarioAvaliacao,
-        height: Number(assessment.altura),
-        weight: Number(assessment.peso),
-        imc: Number(assessment.imc),
-        classification: assessment.classificacao,
-      },
-    })
+    await AppDataSource.transaction(async (manager) => {
+      await this.auditService.record(
+        {
+          actorId: currentUser.id,
+          action: 'assessment.delete',
+          entity: 'assessment',
+          entityId: assessment.id,
+          metadata: {
+            studentId: assessment.idUsuarioAluno,
+            evaluatorId: assessment.idUsuarioAvaliacao,
+            height: Number(assessment.altura),
+            weight: Number(assessment.peso),
+            imc: Number(assessment.imc),
+            classification: assessment.classificacao,
+          },
+        },
+        manager,
+      )
 
-    await this.assessments.remove(assessment)
+      await manager.getRepository(Assessment).remove(assessment)
+    })
   }
 
   private async assertCanRead(currentUser: CurrentUser, assessment: Assessment) {

@@ -1,5 +1,5 @@
 import { randomBytes } from 'crypto'
-import { LessThan, MoreThan } from 'typeorm'
+import { EntityManager, LessThan, MoreThan } from 'typeorm'
 import { AppDataSource } from '../database/data-source'
 import { UserToken } from '../database/entities/UserToken'
 import { AppError } from '../errors/app-error'
@@ -9,18 +9,23 @@ import { parseDurationToMs } from '../utils/parse-duration-to-ms'
 export class TokenService {
   private tokens = AppDataSource.getRepository(UserToken)
 
-  async createRefreshToken(userId: string) {
+  private getTokens(manager?: EntityManager) {
+    return manager ? manager.getRepository(UserToken) : this.tokens
+  }
+
+  async createRefreshToken(userId: string, manager?: EntityManager) {
+    const tokens = this.getTokens(manager)
     const refreshToken = randomBytes(48).toString('hex')
     const expiresIn = process.env.REFRESH_EXPIRES_IN || '7d'
     const expiresAt = new Date(Date.now() + parseDurationToMs(expiresIn))
 
-    const token = this.tokens.create({
+    const token = tokens.create({
       userId,
       tokenHash: hashToken(refreshToken),
       expiresAt,
     })
 
-    await this.tokens.save(token)
+    await tokens.save(token)
 
     return {
       refreshToken,
@@ -28,8 +33,8 @@ export class TokenService {
     }
   }
 
-  async findValidRefreshToken(refreshToken: string) {
-    const token = await this.tokens.findOne({
+  async findValidRefreshToken(refreshToken: string, manager?: EntityManager) {
+    const token = await this.getTokens(manager).findOne({
       where: {
         tokenHash: hashToken(refreshToken),
         expiresAt: MoreThan(new Date()),
@@ -43,8 +48,9 @@ export class TokenService {
     return token
   }
 
-  async revokeRefreshToken(refreshToken: string) {
-    const token = await this.tokens.findOne({
+  async revokeRefreshToken(refreshToken: string, manager?: EntityManager) {
+    const tokens = this.getTokens(manager)
+    const token = await tokens.findOne({
       where: { tokenHash: hashToken(refreshToken) },
     })
 
@@ -52,18 +58,25 @@ export class TokenService {
       throw new AppError('REFRESH_TOKEN_INVALID', 401, 'Refresh token is invalid or expired')
     }
 
-    await this.tokens.remove(token)
+    await tokens.remove(token)
   }
 
-  async revokeAllForUser(userId: string) {
-    await this.tokens.delete({ userId })
+  async revokeAllForUser(userId: string, manager?: EntityManager) {
+    await this.getTokens(manager).delete({ userId })
   }
 
-  async rotateRefreshToken(currentRefreshToken: string) {
-    const current = await this.findValidRefreshToken(currentRefreshToken)
-    await this.tokens.remove(current)
+  async rotateRefreshToken(currentRefreshToken: string, manager?: EntityManager) {
+    const run = async (tx: EntityManager) => {
+      const current = await this.findValidRefreshToken(currentRefreshToken, tx)
+      await tx.getRepository(UserToken).remove(current)
+      return this.createRefreshToken(current.userId, tx)
+    }
 
-    return this.createRefreshToken(current.userId)
+    if (manager) {
+      return run(manager)
+    }
+
+    return AppDataSource.transaction(run)
   }
 
   async deleteExpiredTokens() {

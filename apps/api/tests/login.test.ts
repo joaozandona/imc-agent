@@ -3,6 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { AppDataSource } from '../src/database/data-source'
 import { User, UserPerfil, UserSituacao } from '../src/database/entities/User'
 import { UserToken } from '../src/database/entities/UserToken'
+import { TokenService } from '../src/services/token-service'
 import { hashToken } from '../src/utils/hash-token'
 import {
   app,
@@ -170,6 +171,36 @@ describe('Login', () => {
 
     expect(reuseOldRefresh.status).toBe(401)
     expect(reuseOldRefresh.body.code).toBe('REFRESH_TOKEN_INVALID')
+  })
+
+  it('deletes expired refresh tokens', async () => {
+    const admin = await AppDataSource.getRepository(User).findOneByOrFail({
+      usuario: 'admin',
+    })
+
+    const tokens = AppDataSource.getRepository(UserToken)
+    await tokens.save(
+      tokens.create({
+        userId: admin.id,
+        tokenHash: hashToken('expired-refresh-token'),
+        expiresAt: new Date(Date.now() - 60_000),
+      }),
+    )
+
+    const login = await request(app).post('/login').send({
+      username: 'admin',
+      password: 'admin123',
+    })
+
+    expect(await tokens.count()).toBe(2)
+
+    await new TokenService().deleteExpiredTokens()
+
+    expect(await tokens.count()).toBe(1)
+
+    const remaining = await tokens.find()
+    expect(remaining[0].tokenHash).toBe(hashToken(login.body.refreshToken))
+    expect(remaining[0].expiresAt.getTime()).toBeGreaterThan(Date.now())
   })
 
   it('logs out and revokes the refresh token', async () => {

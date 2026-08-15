@@ -256,7 +256,25 @@ export class AssessmentService {
       throw new AppError('ASSESSMENT_NOT_FOUND', 404, 'Assessment not found')
     }
 
-    this.assertCanWrite(currentUser, assessment)
+    await this.assertCanWrite(currentUser, assessment)
+
+    if (currentUser.role !== UserPerfil.ADMIN) {
+      const student = await this.users.findOne({
+        where: { id: assessment.idUsuarioAluno },
+      })
+
+      if (!student) {
+        throw new AppError('STUDENT_NOT_FOUND', 404, 'Student not found')
+      }
+
+      if (student.situacao === UserSituacao.INATIVO) {
+        throw new AppError(
+          'STUDENT_INACTIVE',
+          400,
+          'Cannot update assessments for inactive students',
+        )
+      }
+    }
 
     const height = data.height ?? Number(assessment.altura)
     const weight = data.weight ?? Number(assessment.peso)
@@ -355,14 +373,16 @@ export class AssessmentService {
     throw new AppError('FORBIDDEN', 403, 'You do not have permission to view this assessment')
   }
 
-  private assertCanWrite(currentUser: CurrentUser, assessment: Assessment) {
+  private async assertCanWrite(currentUser: CurrentUser, assessment: Assessment) {
     if (currentUser.role === UserPerfil.ADMIN) return
 
-    if (
-      currentUser.role === UserPerfil.PROFESSOR &&
-      assessment.idUsuarioAvaliacao === currentUser.id
-    ) {
-      return
+    if (currentUser.role === UserPerfil.PROFESSOR) {
+      const linked = await this.professorStudents.isLinked(
+        currentUser.id,
+        assessment.idUsuarioAluno,
+      )
+
+      if (linked) return
     }
 
     throw new AppError(

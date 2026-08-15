@@ -287,6 +287,79 @@ describe('Users', () => {
     expect(student.body.professorIds).toEqual([professor.id])
   })
 
+  it('prevents professor from changing password or status of unlinked students', async () => {
+    const adminToken = await loginAs('admin', 'admin123')
+    const professorToken = await loginAs('professor', '123456')
+
+    const student = await request(app)
+      .post('/users')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        name: 'Unlinked Student',
+        username: 'unlinkedstudent',
+        password: '123456',
+        role: 'aluno',
+      })
+
+    const passwordAttempt = await request(app)
+      .put(`/users/${student.body.id}`)
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({
+        password: '654321',
+      })
+
+    expect(passwordAttempt.status).toBe(403)
+    expect(passwordAttempt.body.code).toBe('FORBIDDEN')
+
+    const statusAttempt = await request(app)
+      .put(`/users/${student.body.id}`)
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({
+        status: 'inativo',
+      })
+
+    expect(statusAttempt.status).toBe(403)
+    expect(statusAttempt.body.code).toBe('FORBIDDEN')
+
+    const nameUpdate = await request(app)
+      .put(`/users/${student.body.id}`)
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({
+        name: 'Renamed Unlinked',
+      })
+
+    expect(nameUpdate.status).toBe(200)
+    expect(nameUpdate.body.name).toBe('Renamed Unlinked')
+  })
+
+  it('allows professor to change password after linking in the same request', async () => {
+    const adminToken = await loginAs('admin', 'admin123')
+    const professorToken = await loginAs('professor', '123456')
+
+    const student = await request(app)
+      .post('/users')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        name: 'Link And Password',
+        username: 'linkandpassword',
+        password: '123456',
+        role: 'aluno',
+      })
+
+    const response = await request(app)
+      .put(`/users/${student.body.id}`)
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({
+        linkMyself: true,
+        password: '654321',
+        status: 'inativo',
+      })
+
+    expect(response.status).toBe(200)
+    expect(response.body.isLinked).toBe(true)
+    expect(response.body.status).toBe('inativo')
+  })
+
   it('paginates users list for admin', async () => {
     const adminToken = await loginAs('admin', 'admin123')
 

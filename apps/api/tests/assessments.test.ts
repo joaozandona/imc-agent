@@ -128,6 +128,42 @@ describe('Assessments', () => {
     expect(response.body.code).toBe('STUDENT_INACTIVE')
   })
 
+  it('blocks professor from updating assessments of inactive students but allows admin', async () => {
+    const created = await request(app)
+      .post('/assessments')
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({
+        studentId,
+        height: 1.75,
+        weight: 70,
+      })
+
+    expect(created.status).toBe(201)
+
+    const deactivated = await request(app)
+      .put(`/users/${studentId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ status: 'inativo' })
+
+    expect(deactivated.status).toBe(200)
+
+    const forbidden = await request(app)
+      .put(`/assessments/${created.body.id}`)
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({ weight: 80 })
+
+    expect(forbidden.status).toBe(400)
+    expect(forbidden.body.code).toBe('STUDENT_INACTIVE')
+
+    const allowed = await request(app)
+      .put(`/assessments/${created.body.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ weight: 80 })
+
+    expect(allowed.status).toBe(200)
+    expect(allowed.body.weight).toBe(80)
+  })
+
   it('allows student to list only their own assessments', async () => {
     await request(app)
       .post('/assessments')
@@ -180,6 +216,56 @@ describe('Assessments', () => {
 
     expect(response.status).toBe(200)
     expect(response.body.data).toHaveLength(2)
+  })
+
+  it('allows professor to update assessments of linked students created by others', async () => {
+    const created = await request(app)
+      .post('/assessments')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        studentId,
+        height: 1.8,
+        weight: 90,
+      })
+
+    expect(created.status).toBe(201)
+
+    const updated = await request(app)
+      .put(`/assessments/${created.body.id}`)
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({
+        height: 1.75,
+        weight: 70,
+      })
+
+    expect(updated.status).toBe(200)
+    expect(updated.body.imc).toBe(22.9)
+    expect(updated.body.classification).toBe('Peso normal')
+
+    const otherStudent = await createUser({
+      name: 'Other Student Update',
+      username: 'other-student-update',
+      password: '123456',
+      role: UserPerfil.ALUNO,
+    })
+
+    const otherAssessment = await request(app)
+      .post('/assessments')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        studentId: otherStudent.id,
+        height: 1.7,
+        weight: 70,
+      })
+
+    const forbidden = await request(app)
+      .put(`/assessments/${otherAssessment.body.id}`)
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({
+        weight: 80,
+      })
+
+    expect(forbidden.status).toBe(403)
   })
 
   it('paginates assessments list', async () => {

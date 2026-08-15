@@ -359,8 +359,7 @@ export function AssessmentsList({ initialData }: AssessmentsListProps) {
                   {canManage ? (
                     <Table.Cell>
                       <HStack justify="flex-end" gap={2}>
-                        {(isAdmin ||
-                          assessment.evaluator.id === currentUser?.id) ? (
+                        {(isAdmin || isProfessor) ? (
                           <Button
                             asChild
                             size="xs"

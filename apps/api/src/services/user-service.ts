@@ -247,6 +247,7 @@ export class UserService {
     }
 
     this.assertCanUpdate(currentUser, user, data)
+    await this.assertCanUpdatePasswordOrStatus(currentUser, user, data)
 
     if (data.professorIds !== undefined || data.linkMyself !== undefined) {
       if (user.perfil !== UserPerfil.ALUNO && data.role !== UserPerfil.ALUNO) {
@@ -535,5 +536,31 @@ export class UserService {
     }
 
     throw new AppError('FORBIDDEN', 403, 'You do not have permission to update this user')
+  }
+
+  private async assertCanUpdatePasswordOrStatus(
+    currentUser: CurrentUser,
+    user: User,
+    data: UpdateUserData,
+  ) {
+    if (currentUser.role !== UserPerfil.PROFESSOR) return
+    if (user.perfil !== UserPerfil.ALUNO) return
+
+    const changingPassword = Boolean(data.password)
+    const changingStatus =
+      data.status !== undefined && data.status !== user.situacao
+
+    if (!changingPassword && !changingStatus) return
+
+    const linked = await this.professorStudents.isLinked(currentUser.id, user.id)
+    const linkingNow = data.linkMyself === true
+
+    if (!linked && !linkingNow) {
+      throw new AppError(
+        'FORBIDDEN',
+        403,
+        'Professors can only change password or status of their linked students',
+      )
+    }
   }
 }

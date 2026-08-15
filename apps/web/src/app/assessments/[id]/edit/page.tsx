@@ -1,4 +1,4 @@
-import { notFound, redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import { AppShell } from '@/components/app-shell'
 import { getAssessmentServer } from '@/lib/server-data'
 import { requireSessionUser } from '@/lib/session'
@@ -11,7 +11,7 @@ type EditAssessmentPageProps = {
 export default async function EditAssessmentPage({
   params,
 }: EditAssessmentPageProps) {
-  const currentUser = await requireSessionUser(['admin', 'professor'])
+  await requireSessionUser(['admin', 'professor'])
   const { id } = await params
 
   let assessment
@@ -19,13 +19,6 @@ export default async function EditAssessmentPage({
     assessment = await getAssessmentServer(id)
   } catch {
     notFound()
-  }
-
-  if (
-    currentUser.role === 'professor' &&
-    assessment.evaluator.id !== currentUser.id
-  ) {
-    redirect('/assessments')
   }
 
   return (

@@ -50,17 +50,22 @@ export function EditUserForm({ user }: EditUserFormProps) {
   })
 
   const selectedRole = useWatch({ control, name: 'role' })
+  const linkMyself = useWatch({ control, name: 'linkMyself' })
+  const canEditPasswordOrStatus =
+    isAdmin || !isProfessor || !isStudent || Boolean(user.isLinked) || Boolean(linkMyself)
 
   const saveMutation = useMutation({
     mutationFn: (data: UpdateUserFormData) => {
       const body: Parameters<typeof updateUser>[1] = {
         name: data.name,
         username: data.username,
-        status: data.status,
       }
 
-      if (data.password) {
-        body.password = data.password
+      if (canEditPasswordOrStatus) {
+        body.status = data.status
+        if (data.password) {
+          body.password = data.password
+        }
       }
 
       if (isAdmin) {
@@ -122,13 +127,19 @@ export function EditUserForm({ user }: EditUserFormProps) {
         ) : null}
       </Field.Root>
 
-      <Field.Root invalid={Boolean(errors.password)}>
+      <Field.Root invalid={Boolean(errors.password)} disabled={!canEditPasswordOrStatus}>
         <Field.Label>Senha (deixe em branco para manter)</Field.Label>
         <Input
           type="password"
           autoComplete="new-password"
+          disabled={!canEditPasswordOrStatus}
           {...register('password')}
         />
+        {!canEditPasswordOrStatus ? (
+          <Field.HelperText>
+            Vincule-se ao aluno para alterar a senha.
+          </Field.HelperText>
+        ) : null}
         {errors.password?.message ? (
           <Field.ErrorText>{errors.password.message}</Field.ErrorText>
         ) : null}
@@ -150,14 +161,22 @@ export function EditUserForm({ user }: EditUserFormProps) {
         </Field.Root>
       ) : null}
 
-      <Field.Root invalid={Boolean(errors.status)}>
+      <Field.Root invalid={Boolean(errors.status)} disabled={!canEditPasswordOrStatus}>
         <Field.Label>Situação</Field.Label>
-        <NativeSelect.Root>
-          <NativeSelect.Field {...register('status')}>
+        <NativeSelect.Root disabled={!canEditPasswordOrStatus}>
+          <NativeSelect.Field
+            disabled={!canEditPasswordOrStatus}
+            {...register('status')}
+          >
             <option value="ativo">Ativo</option>
             <option value="inativo">Inativo</option>
           </NativeSelect.Field>
         </NativeSelect.Root>
+        {!canEditPasswordOrStatus ? (
+          <Field.HelperText>
+            Vincule-se ao aluno para alterar a situação.
+          </Field.HelperText>
+        ) : null}
         {errors.status?.message ? (
           <Field.ErrorText>{errors.status.message}</Field.ErrorText>
         ) : null}

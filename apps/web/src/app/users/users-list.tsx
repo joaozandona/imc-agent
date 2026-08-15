@@ -271,7 +271,26 @@ export function UsersList({ initialData }: UsersListProps) {
                 <Table.Row key={user.id}>
                   <Table.Cell>{user.name}</Table.Cell>
                   <Table.Cell>{user.username}</Table.Cell>
-                  <Table.Cell>{roleLabels[user.role]}</Table.Cell>
+                  <Table.Cell>
+                    <HStack gap={2}>
+                      <Text>{roleLabels[user.role]}</Text>
+                      {user.isLinked ? (
+                        <Text
+                          as="span"
+                          display="inline-block"
+                          px={2}
+                          py={0.5}
+                          fontSize="xs"
+                          fontWeight="medium"
+                          borderRadius="md"
+                          bg="green.100"
+                          color="green.800"
+                        >
+                          Meu aluno
+                        </Text>
+                      ) : null}
+                    </HStack>
+                  </Table.Cell>
                   <Table.Cell>
                     <Text
                       as="span"
@@ -289,7 +308,7 @@ export function UsersList({ initialData }: UsersListProps) {
                   </Table.Cell>
                   <Table.Cell>
                     <HStack justify="flex-end" gap={2}>
-                      {user.role === 'aluno' ? (
+                      {user.role === 'aluno' && (isAdmin || user.isLinked) ? (
                         <Button asChild size="xs" variant="outline" colorPalette="brand">
                           <Link href={`/users/${user.id}/evolution`}>Evolução</Link>
                         </Button>

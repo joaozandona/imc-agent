@@ -34,6 +34,10 @@ export default async function StudentEvolutionPage({
     redirect('/users')
   }
 
+  if (currentUser.role === 'professor' && !student.isLinked) {
+    redirect('/users')
+  }
+
   const assessments = await listAssessmentsServer({
     studentId: student.id,
     page: 1,
@@ -44,11 +48,6 @@ export default async function StudentEvolutionPage({
 
   const filtered = filterAssessmentsByDateRange(assessments.data, dateRange)
 
-  const subtitle =
-    currentUser.role === 'professor'
-      ? 'Somente avaliações registradas por você'
-      : 'Avaliações deste aluno'
-
   return (
     <AppShell title="Evolução">
       <ImcEvolutionPanel
@@ -57,7 +56,7 @@ export default async function StudentEvolutionPage({
         assessments={filtered}
         filterPath={`/users/${student.id}/evolution`}
         dateRange={dateRange}
-        subtitle={subtitle}
+        subtitle={'Avaliações do aluno'}
         backHref="/users"
         backLabel="Voltar aos usuários"
       />

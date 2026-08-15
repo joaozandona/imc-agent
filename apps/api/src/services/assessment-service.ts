@@ -1,5 +1,5 @@
 import { calculateImc, classifyImc } from '@imc/shared'
-import { FindOptionsOrder, FindOptionsWhere } from 'typeorm'
+import { FindOptionsOrder, FindOptionsWhere, In } from 'typeorm'
 import { AppDataSource } from '../database/data-source'
 import { Assessment } from '../database/entities/Assessment'
 import { User, UserPerfil, UserSituacao } from '../database/entities/User'
@@ -16,6 +16,7 @@ import {
 } from '../schemas/pagination-schema'
 import { SortOrder, toTypeOrmOrder } from '../schemas/sort-schema'
 import { CurrentUser } from '../types/current-user'
+import { ProfessorStudentService } from './professor-student-service'
 
 const assessmentRelations = {
   usuarioAluno: true,
@@ -84,6 +85,7 @@ function buildAssessmentOrder(
 export class AssessmentService {
   private assessments = AppDataSource.getRepository(Assessment)
   private users = AppDataSource.getRepository(User)
+  private professorStudents = new ProfessorStudentService()
 
   private async findOneWithRelations(id: string) {
     return this.assessments.findOne({
@@ -93,44 +95,61 @@ export class AssessmentService {
   }
 
   async list(currentUser: CurrentUser, query: ListAssessmentsQuery) {
+    const { page, limit, sortBy, sortOrder } = query
+    const skip = getPaginationSkip(page, limit)
     const where: FindOptionsWhere<Assessment> = {}
 
     if (currentUser.role === UserPerfil.ALUNO) {
       where.idUsuarioAluno = currentUser.id
     }
 
+    let linkedStudentIds: string[] | null = null
+
     if (currentUser.role === UserPerfil.PROFESSOR) {
-      where.idUsuarioAvaliacao = currentUser.id
+      linkedStudentIds = await this.professorStudents.listStudentIdsForProfessor(
+        currentUser.id,
+      )
+
+      if (linkedStudentIds.length === 0) {
+        return {
+          data: [],
+          meta: buildPaginationMeta(page, limit, 0),
+        }
+      }
+
+      where.idUsuarioAluno = In(linkedStudentIds)
     }
 
     if (query.studentId) {
       if (currentUser.role === UserPerfil.ALUNO && query.studentId !== currentUser.id) {
         throw new AppError('FORBIDDEN', 403, 'Students can only view their own assessments')
       }
+
+      if (currentUser.role === UserPerfil.PROFESSOR) {
+        const linked = await this.professorStudents.isLinked(
+          currentUser.id,
+          query.studentId,
+        )
+
+        if (!linked) {
+          throw new AppError(
+            'STUDENT_NOT_LINKED',
+            403,
+            'You can only view assessments of your linked students',
+          )
+        }
+      }
+
       where.idUsuarioAluno = query.studentId
     }
 
     if (query.idUsuarioAvaliacao) {
-      if (
-        currentUser.role === UserPerfil.PROFESSOR &&
-        query.idUsuarioAvaliacao !== currentUser.id
-      ) {
-        throw new AppError(
-          'FORBIDDEN',
-          403,
-          'Professors can only view assessments they registered',
-        )
-      }
-
       if (currentUser.role === UserPerfil.ALUNO) {
         throw new AppError('FORBIDDEN', 403, 'Students cannot filter by evaluator')
       }
 
       where.idUsuarioAvaliacao = query.idUsuarioAvaliacao
     }
-
-    const { page, limit, sortBy, sortOrder } = query
-    const skip = getPaginationSkip(page, limit)
 
     const [assessments, total] = await this.assessments.findAndCount({
       where,
@@ -153,7 +172,7 @@ export class AssessmentService {
       throw new AppError('ASSESSMENT_NOT_FOUND', 404, 'Assessment not found')
     }
 
-    this.assertCanRead(currentUser, assessment)
+    await this.assertCanRead(currentUser, assessment)
     return toListAssessment(assessment)
   }
 
@@ -177,6 +196,18 @@ export class AssessmentService {
         400,
         'Cannot create assessments for inactive students',
       )
+    }
+
+    if (currentUser.role === UserPerfil.PROFESSOR) {
+      const linked = await this.professorStudents.isLinked(currentUser.id, student.id)
+
+      if (!linked) {
+        throw new AppError(
+          'STUDENT_NOT_LINKED',
+          403,
+          'You can only create assessments for your linked students',
+        )
+      }
     }
 
     const imc = calculateImc(data.height, data.weight)
@@ -231,14 +262,16 @@ export class AssessmentService {
     await this.assessments.remove(assessment)
   }
 
-  private assertCanRead(currentUser: CurrentUser, assessment: Assessment) {
+  private async assertCanRead(currentUser: CurrentUser, assessment: Assessment) {
     if (currentUser.role === UserPerfil.ADMIN) return
 
-    if (
-      currentUser.role === UserPerfil.PROFESSOR &&
-      assessment.idUsuarioAvaliacao === currentUser.id
-    ) {
-      return
+    if (currentUser.role === UserPerfil.PROFESSOR) {
+      const linked = await this.professorStudents.isLinked(
+        currentUser.id,
+        assessment.idUsuarioAluno,
+      )
+
+      if (linked) return
     }
 
     if (

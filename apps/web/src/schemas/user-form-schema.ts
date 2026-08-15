@@ -9,6 +9,7 @@ export const createUserFormSchema = z.object({
   password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
   role: roleSchema,
   status: statusSchema,
+  professorIds: z.array(z.string().uuid()).optional(),
 })
 
 export const updateUserFormSchema = z.object({
@@ -22,6 +23,8 @@ export const updateUserFormSchema = z.object({
     }),
   role: roleSchema,
   status: statusSchema,
+  professorIds: z.array(z.string().uuid()).optional(),
+  linkMyself: z.boolean().optional(),
 })
 
 export type CreateUserFormData = z.infer<typeof createUserFormSchema>

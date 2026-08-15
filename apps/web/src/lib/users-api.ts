@@ -21,6 +21,7 @@ export type CreateUserInput = {
   password: string
   role: UserRole
   status?: UserStatus
+  professorIds?: string[]
 }
 
 export type UpdateUserInput = {
@@ -29,12 +30,15 @@ export type UpdateUserInput = {
   password?: string
   role?: UserRole
   status?: UserStatus
+  professorIds?: string[]
+  linkMyself?: boolean
 }
 
 export type ListUsersParams = PaginationParams &
   SortParams & {
     name?: string
     username?: string
+    role?: UserRole
     sortBy?: UserSortBy
   }
 
@@ -45,6 +49,7 @@ export async function listUsers(params: ListUsersParams = {}) {
       limit: params.limit ?? DEFAULT_PAGE_SIZE,
       name: params.name || undefined,
       username: params.username || undefined,
+      role: params.role || undefined,
       sortBy: params.sortBy ?? DEFAULT_SORT_BY,
       sortOrder: params.sortOrder ?? DEFAULT_SORT_ORDER,
     },

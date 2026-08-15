@@ -1,4 +1,4 @@
-import { FindOptionsOrder, FindOptionsWhere, Like } from 'typeorm'
+import { FindOptionsOrder, FindOptionsWhere, In, Like } from 'typeorm'
 import { AppDataSource } from '../database/data-source'
 import { Assessment } from '../database/entities/Assessment'
 import { User, UserPerfil, UserSituacao } from '../database/entities/User'
@@ -16,9 +16,23 @@ import {
 import { toTypeOrmOrder } from '../schemas/sort-schema'
 import { CurrentUser } from '../types/current-user'
 import { LoginService } from './login-service'
+import { ProfessorStudentService } from './professor-student-service'
 import { TokenService } from './token-service'
 
-function toListUser(user: User) {
+type UserResponse = {
+  id: string
+  name: string
+  username: string
+  role: UserPerfil
+  status: UserSituacao
+  createdAt: Date
+  updatedAt: Date
+  professorIds?: string[]
+  professors?: { id: string; name: string }[]
+  isLinked?: boolean
+}
+
+function toListUser(user: User): UserResponse {
   return {
     id: user.id,
     name: user.nome,
@@ -43,6 +57,7 @@ export class UserService {
   private assessments = AppDataSource.getRepository(Assessment)
   private loginService = new LoginService()
   private tokenService = new TokenService()
+  private professorStudents = new ProfessorStudentService()
 
   async list(currentUser: CurrentUser, query: ListUsersQuery) {
     const { page, limit, sortBy, sortOrder } = query
@@ -65,8 +80,21 @@ export class UserService {
       take: limit,
     })
 
+    const linkedStudentIds =
+      currentUser.role === UserPerfil.PROFESSOR
+        ? new Set(await this.professorStudents.listStudentIdsForProfessor(currentUser.id))
+        : null
+
     return {
-      data: users.map(toListUser),
+      data: users.map((user) => {
+        const item = toListUser(user)
+
+        if (user.perfil === UserPerfil.ALUNO && linkedStudentIds) {
+          item.isLinked = linkedStudentIds.has(user.id)
+        }
+
+        return item
+      }),
       meta: buildPaginationMeta(page, limit, total),
     }
   }
@@ -86,6 +114,8 @@ export class UserService {
 
     if (currentUser.role === UserPerfil.PROFESSOR) {
       where.perfil = UserPerfil.ALUNO
+    } else if (query.role) {
+      where.perfil = query.role as UserPerfil
     }
 
     if (query.name) {
@@ -107,11 +137,27 @@ export class UserService {
     }
 
     this.assertCanRead(currentUser, user)
-    return toListUser(user)
+    return this.toDetailedUser(currentUser, user)
   }
 
   async create(currentUser: CurrentUser, data: CreateUserData) {
     this.assertCanCreate(currentUser, data.role as UserPerfil)
+
+    if (data.role !== UserPerfil.ALUNO && data.professorIds !== undefined) {
+      throw new AppError(
+        'VALIDATION_ERROR',
+        400,
+        'professorIds can only be set for students',
+      )
+    }
+
+    if (currentUser.role === UserPerfil.PROFESSOR && data.professorIds !== undefined) {
+      throw new AppError(
+        'FORBIDDEN',
+        403,
+        'Professors cannot assign professor links on create',
+      )
+    }
 
     const existing = await this.users.findOne({ where: { usuario: data.username } })
 
@@ -128,7 +174,16 @@ export class UserService {
     })
 
     await this.users.save(user)
-    return toListUser(user)
+
+    if (user.perfil === UserPerfil.ALUNO) {
+      if (currentUser.role === UserPerfil.PROFESSOR) {
+        await this.professorStudents.addLink(currentUser.id, user.id)
+      } else if (data.professorIds) {
+        await this.professorStudents.setLinksForStudent(user.id, data.professorIds)
+      }
+    }
+
+    return this.toDetailedUser(currentUser, user)
   }
 
   async update(currentUser: CurrentUser, id: string, data: UpdateUserData) {
@@ -139,6 +194,16 @@ export class UserService {
     }
 
     this.assertCanUpdate(currentUser, user, data)
+
+    if (data.professorIds !== undefined || data.linkMyself !== undefined) {
+      if (user.perfil !== UserPerfil.ALUNO && data.role !== UserPerfil.ALUNO) {
+        throw new AppError(
+          'VALIDATION_ERROR',
+          400,
+          'Professor links can only be set for students',
+        )
+      }
+    }
 
     if (data.username && data.username !== user.usuario) {
       const existing = await this.users.findOne({ where: { usuario: data.username } })
@@ -161,7 +226,13 @@ export class UserService {
       await this.tokenService.revokeAllForUser(user.id)
     }
 
-    return toListUser(user)
+    if (user.perfil === UserPerfil.ALUNO) {
+      await this.syncStudentLinks(currentUser, user.id, data)
+    } else if (data.professorIds !== undefined || data.linkMyself !== undefined) {
+      await this.professorStudents.deleteAllForUser(user.id)
+    }
+
+    return this.toDetailedUser(currentUser, user)
   }
 
   async delete(currentUser: CurrentUser, id: string) {
@@ -185,7 +256,67 @@ export class UserService {
       )
     }
 
+    await this.professorStudents.deleteAllForUser(id)
     await this.users.remove(user)
+  }
+
+  private async syncStudentLinks(
+    currentUser: CurrentUser,
+    studentId: string,
+    data: UpdateUserData,
+  ) {
+    if (currentUser.role === UserPerfil.ADMIN && data.professorIds !== undefined) {
+      await this.professorStudents.setLinksForStudent(studentId, data.professorIds)
+      return
+    }
+
+    if (currentUser.role === UserPerfil.PROFESSOR && data.linkMyself !== undefined) {
+      if (data.professorIds !== undefined) {
+        throw new AppError(
+          'FORBIDDEN',
+          403,
+          'Professors can only link or unlink themselves',
+        )
+      }
+
+      if (data.linkMyself) {
+        await this.professorStudents.addLink(currentUser.id, studentId)
+      } else {
+        await this.professorStudents.removeLink(currentUser.id, studentId)
+      }
+    }
+  }
+
+  private async toDetailedUser(currentUser: CurrentUser, user: User): Promise<UserResponse> {
+    const item = toListUser(user)
+
+    if (user.perfil === UserPerfil.ALUNO) {
+      const professorIds = await this.professorStudents.listProfessorIdsForStudent(user.id)
+
+      if (currentUser.role === UserPerfil.ADMIN) {
+        item.professorIds = professorIds
+
+        if (professorIds.length > 0) {
+          const professors = await this.users.find({
+            where: { id: In(professorIds) },
+            select: { id: true, nome: true },
+          })
+          const nameById = new Map(professors.map((professor) => [professor.id, professor.nome]))
+          item.professors = professorIds.map((id) => ({
+            id,
+            name: nameById.get(id) ?? id,
+          }))
+        } else {
+          item.professors = []
+        }
+      }
+
+      if (currentUser.role === UserPerfil.PROFESSOR) {
+        item.isLinked = professorIds.includes(currentUser.id)
+      }
+    }
+
+    return item
   }
 
   private async countLinkedAssessments(userId: string) {
@@ -210,7 +341,6 @@ export class UserService {
     if (currentUser.role === UserPerfil.ADMIN) return
 
     if (currentUser.role === UserPerfil.PROFESSOR && user.perfil === UserPerfil.ALUNO) {
-      // Professors can edit students, but cannot change anyone's role
       if (data.role !== undefined) {
         throw new AppError('FORBIDDEN', 403, 'Professors cannot change user roles')
       }

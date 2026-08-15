@@ -8,6 +8,7 @@ export const createUserSchema = z.object({
   password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
   role: z.enum(['admin', 'professor', 'aluno']),
   status: z.enum(['ativo', 'inativo']).optional().default('ativo'),
+  professorIds: z.array(z.string().uuid()).optional(),
 })
 
 export const updateUserSchema = z.object({
@@ -16,6 +17,8 @@ export const updateUserSchema = z.object({
   password: z.string().min(6).optional(),
   role: z.enum(['admin', 'professor', 'aluno']).optional(),
   status: z.enum(['ativo', 'inativo']).optional(),
+  professorIds: z.array(z.string().uuid()).optional(),
+  linkMyself: z.boolean().optional(),
 })
 
 export const userSortBySchema = z
@@ -25,6 +28,7 @@ export const userSortBySchema = z
 export const listUsersQuerySchema = paginationQuerySchema.extend({
   name: z.string().trim().optional(),
   username: z.string().trim().optional(),
+  role: z.enum(['admin', 'professor', 'aluno']).optional(),
   sortBy: userSortBySchema,
   sortOrder: sortOrderSchema,
 })

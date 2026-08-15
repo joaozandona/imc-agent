@@ -1,3 +1,4 @@
+import { notFound, redirect } from 'next/navigation'
 import { AppShell } from '@/components/app-shell'
 import { getAssessmentServer } from '@/lib/server-data'
 import { requireSessionUser } from '@/lib/session'
@@ -10,9 +11,22 @@ type EditAssessmentPageProps = {
 export default async function EditAssessmentPage({
   params,
 }: EditAssessmentPageProps) {
-  await requireSessionUser(['admin', 'professor'])
+  const currentUser = await requireSessionUser(['admin', 'professor'])
   const { id } = await params
-  const assessment = await getAssessmentServer(id)
+
+  let assessment
+  try {
+    assessment = await getAssessmentServer(id)
+  } catch {
+    notFound()
+  }
+
+  if (
+    currentUser.role === 'professor' &&
+    assessment.evaluator.id !== currentUser.id
+  ) {
+    redirect('/assessments')
+  }
 
   return (
     <AppShell title="Avaliações">

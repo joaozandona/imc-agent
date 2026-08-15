@@ -12,4 +12,7 @@ export type User = {
 export type ListUser = User & {
   createdAt: string
   updatedAt: string
+  professorIds?: string[]
+  professors?: { id: string; name: string }[]
+  isLinked?: boolean
 }

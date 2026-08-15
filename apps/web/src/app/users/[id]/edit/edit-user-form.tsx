@@ -1,12 +1,13 @@
 'use client'
 
-import { Field, Input, NativeSelect } from '@chakra-ui/react'
+import { Checkbox, Field, Input, NativeSelect } from '@chakra-ui/react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 import { UserFormLayout } from '@/app/users/user-form-layout'
+import { ProfessorMultiCombobox } from '@/components/professor-multi-combobox'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { getApiErrorMessage } from '@/lib/api-error-message'
 import { updateUser } from '@/lib/users-api'
@@ -27,8 +28,11 @@ export function EditUserForm({ user }: EditUserFormProps) {
   const [formError, setFormError] = useState<string | null>(null)
 
   const isAdmin = currentUser?.role === 'admin'
+  const isProfessor = currentUser?.role === 'professor'
+  const isStudent = user.role === 'aluno'
 
   const {
+    control,
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
@@ -40,8 +44,12 @@ export function EditUserForm({ user }: EditUserFormProps) {
       password: '',
       role: user.role,
       status: user.status,
+      professorIds: user.professorIds ?? [],
+      linkMyself: Boolean(user.isLinked),
     },
   })
+
+  const selectedRole = useWatch({ control, name: 'role' })
 
   const saveMutation = useMutation({
     mutationFn: (data: UpdateUserFormData) => {
@@ -57,6 +65,13 @@ export function EditUserForm({ user }: EditUserFormProps) {
 
       if (isAdmin) {
         body.role = data.role
+        if (data.role === 'aluno') {
+          body.professorIds = data.professorIds ?? []
+        }
+      }
+
+      if (isProfessor && isStudent) {
+        body.linkMyself = Boolean(data.linkMyself)
       }
 
       return updateUser(user.id, body)
@@ -84,7 +99,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
       description={
         isAdmin
           ? 'Administradores podem editar qualquer perfil.'
-          : 'Professores editam apenas alunos.'
+          : 'Professores editam alunos e podem se vincular a eles.'
       }
       error={formError}
       loading={isSubmitting || saveMutation.isPending}
@@ -147,6 +162,47 @@ export function EditUserForm({ user }: EditUserFormProps) {
           <Field.ErrorText>{errors.status.message}</Field.ErrorText>
         ) : null}
       </Field.Root>
+
+      {isAdmin && selectedRole === 'aluno' ? (
+        <Field.Root>
+          <Field.Label>Professores vinculados</Field.Label>
+          <Controller
+            name="professorIds"
+            control={control}
+            render={({ field }) => (
+              <ProfessorMultiCombobox
+                value={field.value ?? []}
+                selectedProfessors={user.professors ?? []}
+                onChange={(professorIds) => field.onChange(professorIds)}
+                placeholder="Digite o nome do professor"
+              />
+            )}
+          />
+        </Field.Root>
+      ) : null}
+
+      {isProfessor && isStudent ? (
+        <Field.Root>
+          <Controller
+            name="linkMyself"
+            control={control}
+            render={({ field }) => (
+              <Checkbox.Root
+                checked={Boolean(field.value)}
+                onCheckedChange={(details) => {
+                  field.onChange(Boolean(details.checked))
+                }}
+              >
+                <Checkbox.HiddenInput />
+                <Checkbox.Control>
+                  <Checkbox.Indicator />
+                </Checkbox.Control>
+                <Checkbox.Label>Sou professor deste aluno</Checkbox.Label>
+              </Checkbox.Root>
+            )}
+          />
+        </Field.Root>
+      ) : null}
     </UserFormLayout>
   )
 }

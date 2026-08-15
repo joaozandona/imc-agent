@@ -1,12 +1,13 @@
 'use client'
 
-import { Field, Input, NativeSelect } from '@chakra-ui/react'
+import { Checkbox, Field, Input, NativeSelect } from '@chakra-ui/react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 import { UserFormLayout } from '@/app/users/user-form-layout'
+import { ProfessorMultiCombobox } from '@/components/professor-multi-combobox'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { getApiErrorMessage } from '@/lib/api-error-message'
 import { createUser } from '@/lib/users-api'
@@ -24,6 +25,7 @@ export function CreateUserForm() {
   const isAdmin = currentUser?.role === 'admin'
 
   const {
+    control,
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
@@ -35,15 +37,25 @@ export function CreateUserForm() {
       password: '',
       role: 'aluno',
       status: 'ativo',
+      professorIds: [],
     },
   })
 
+  const selectedRole = useWatch({ control, name: 'role' })
+
   const saveMutation = useMutation({
-    mutationFn: (data: CreateUserFormData) =>
-      createUser({
-        ...data,
-        role: isAdmin ? data.role : 'aluno',
-      }),
+    mutationFn: (data: CreateUserFormData) => {
+      const role = isAdmin ? data.role : 'aluno'
+      return createUser({
+        name: data.name,
+        username: data.username,
+        password: data.password,
+        role,
+        status: data.status,
+        professorIds:
+          isAdmin && role === 'aluno' ? data.professorIds ?? [] : undefined,
+      })
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['users'] })
       router.replace('/users')
@@ -63,9 +75,7 @@ export function CreateUserForm() {
   return (
     <UserFormLayout
       title="Novo usuário"
-      description={
-        'Incluir novo Aluno ou Professor.'
-      }
+      description="Incluir novo Aluno ou Professor."
       error={formError}
       loading={isSubmitting || saveMutation.isPending}
       onCancel={() => router.push('/users')}
@@ -129,6 +139,23 @@ export function CreateUserForm() {
           <Field.ErrorText>{errors.status.message}</Field.ErrorText>
         ) : null}
       </Field.Root>
+
+      {isAdmin && selectedRole === 'aluno' ? (
+        <Field.Root>
+          <Field.Label>Professores vinculados</Field.Label>
+          <Controller
+            name="professorIds"
+            control={control}
+            render={({ field }) => (
+              <ProfessorMultiCombobox
+                value={field.value ?? []}
+                onChange={(professorIds) => field.onChange(professorIds)}
+                placeholder="Digite o nome do professor"
+              />
+            )}
+          />
+        </Field.Root>
+      ) : null}
     </UserFormLayout>
   )
 }

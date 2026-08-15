@@ -6,6 +6,7 @@ import {
   clearDatabase,
   closeTestDatabase,
   createUser,
+  linkProfessorToStudent,
   setupTestDatabase,
 } from './helpers/test-app'
 
@@ -18,6 +19,7 @@ describe('Assessments', () => {
   let adminToken: string
   let professorToken: string
   let studentToken: string
+  let professorId: string
   let studentId: string
   let inactiveStudentId: string
 
@@ -35,7 +37,7 @@ describe('Assessments', () => {
       role: UserPerfil.ADMIN,
     })
 
-    await createUser({
+    const professor = await createUser({
       name: 'Professor',
       username: 'professor',
       password: '123456',
@@ -57,8 +59,13 @@ describe('Assessments', () => {
       status: UserSituacao.INATIVO,
     })
 
+    professorId = professor.id
     studentId = student.id
     inactiveStudentId = inactiveStudent.id
+
+    await linkProfessorToStudent(professorId, studentId)
+    await linkProfessorToStudent(professorId, inactiveStudentId)
+
     adminToken = await loginAs('admin', 'admin123')
     professorToken = await loginAs('professor', '123456')
     studentToken = await loginAs('student', '123456')
@@ -84,6 +91,27 @@ describe('Assessments', () => {
     expect(response.body.id).toEqual(expect.any(String))
     expect(response.body.student).toBeUndefined()
     expect(response.body.evaluator).toBeUndefined()
+  })
+
+  it('blocks professor from creating assessments for unlinked students', async () => {
+    const otherStudent = await createUser({
+      name: 'Other Student',
+      username: 'other-student',
+      password: '123456',
+      role: UserPerfil.ALUNO,
+    })
+
+    const response = await request(app)
+      .post('/assessments')
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({
+        studentId: otherStudent.id,
+        height: 1.75,
+        weight: 70,
+      })
+
+    expect(response.status).toBe(403)
+    expect(response.body.code).toBe('STUDENT_NOT_LINKED')
   })
 
   it('blocks assessments for inactive students', async () => {
@@ -127,7 +155,7 @@ describe('Assessments', () => {
     })
   })
 
-  it('allows professor to list only assessments they registered', async () => {
+  it('allows professor to list all assessments of linked students', async () => {
     await request(app)
       .post('/assessments')
       .set('Authorization', `Bearer ${professorToken}`)
@@ -151,7 +179,7 @@ describe('Assessments', () => {
       .set('Authorization', `Bearer ${professorToken}`)
 
     expect(response.status).toBe(200)
-    expect(response.body.data).toHaveLength(1)
+    expect(response.body.data).toHaveLength(2)
   })
 
   it('paginates assessments list', async () => {

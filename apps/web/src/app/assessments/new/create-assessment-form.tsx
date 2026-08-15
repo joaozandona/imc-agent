@@ -8,6 +8,7 @@ import { useMemo, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { AssessmentFormLayout } from '@/app/assessments/assessment-form-layout'
 import { StudentCombobox } from '@/components/student-combobox'
+import { useCurrentUser } from '@/hooks/use-current-user'
 import { getApiErrorMessage } from '@/lib/api-error-message'
 import { createAssessment } from '@/lib/assessments-api'
 import { listUsers } from '@/lib/users-api'
@@ -20,6 +21,7 @@ import {
 export function CreateAssessmentForm() {
   const router = useRouter()
   const queryClient = useQueryClient()
+  const currentUser = useCurrentUser()
   const [formError, setFormError] = useState<string | null>(null)
 
   const usersQuery = useQuery({
@@ -27,13 +29,17 @@ export function CreateAssessmentForm() {
     queryFn: () => listUsers({ page: 1, limit: SELECT_PAGE_SIZE }),
   })
 
-  const activeStudents = useMemo(
-    () =>
-      (usersQuery.data?.data ?? []).filter(
-        (user) => user.role === 'aluno' && user.status === 'ativo',
-      ),
-    [usersQuery.data],
-  )
+  const activeStudents = useMemo(() => {
+    const students = (usersQuery.data?.data ?? []).filter(
+      (user) => user.role === 'aluno' && user.status === 'ativo',
+    )
+
+    if (currentUser?.role === 'professor') {
+      return students.filter((user) => user.isLinked)
+    }
+
+    return students
+  }, [usersQuery.data, currentUser?.role])
 
   const {
     control,

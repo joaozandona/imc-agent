@@ -5,6 +5,7 @@ import { AppDataSource } from '../database/data-source'
 import { Assessment } from '../database/entities/Assessment'
 import { User, UserPerfil, UserSituacao } from '../database/entities/User'
 import { LoginService } from '../services/login-service'
+import { ProfessorStudentService } from '../services/professor-student-service'
 
 const PROFESSOR_USERNAME = 'professor'
 const PROFESSOR_PASSWORD = 'prof123'
@@ -65,6 +66,7 @@ async function seedDemoEvolution() {
   const users = AppDataSource.getRepository(User)
   const assessments = AppDataSource.getRepository(Assessment)
   const loginService = new LoginService()
+  const professorStudents = new ProfessorStudentService()
 
   const professor = await findOrCreateUser(users, loginService, {
     name: 'Professor Demo',
@@ -79,6 +81,8 @@ async function seedDemoEvolution() {
     password: STUDENT_PASSWORD,
     role: UserPerfil.ALUNO,
   })
+
+  await professorStudents.addLink(professor.id, student.id)
 
   const previous = await assessments.find({
     where: {

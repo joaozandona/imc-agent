@@ -143,11 +143,11 @@ describe('Users', () => {
     expect(allowedDelete.status).toBe(204)
   })
 
-  it('lists only students for professor', async () => {
+  it('lists only students for professor with isLinked flag', async () => {
     const adminToken = await loginAs('admin', 'admin123')
     const professorToken = await loginAs('professor', '123456')
 
-    await request(app)
+    const created = await request(app)
       .post('/users')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
@@ -157,19 +157,134 @@ describe('Users', () => {
         role: 'aluno',
       })
 
+    const linked = await request(app)
+      .post('/users')
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({
+        name: 'Student Linked',
+        username: 'studentlinked',
+        password: '123456',
+        role: 'aluno',
+      })
+
     const response = await request(app)
       .get('/users')
       .set('Authorization', `Bearer ${professorToken}`)
 
     expect(response.status).toBe(200)
-    expect(response.body.data.length).toBeGreaterThanOrEqual(1)
+    expect(response.body.data.length).toBeGreaterThanOrEqual(2)
     expect(
       response.body.data.every((user: { role: string }) => user.role === 'aluno'),
     ).toBe(true)
+
+    const unlinkedRow = response.body.data.find(
+      (user: { id: string }) => user.id === created.body.id,
+    )
+    const linkedRow = response.body.data.find(
+      (user: { id: string }) => user.id === linked.body.id,
+    )
+
+    expect(unlinkedRow.isLinked).toBe(false)
+    expect(linkedRow.isLinked).toBe(true)
     expect(response.body.meta).toMatchObject({
       page: 1,
       limit: 20,
     })
+  })
+
+  it('auto-links student when professor creates them', async () => {
+    const professorToken = await loginAs('professor', '123456')
+
+    const created = await request(app)
+      .post('/users')
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({
+        name: 'Auto Linked',
+        username: 'autolinked',
+        password: '123456',
+        role: 'aluno',
+      })
+
+    expect(created.status).toBe(201)
+    expect(created.body.isLinked).toBe(true)
+    expect(created.body.professorIds).toBeUndefined()
+    expect(created.body.professors).toBeUndefined()
+  })
+
+  it('allows professor to link themselves on student edit', async () => {
+    const adminToken = await loginAs('admin', 'admin123')
+    const professorToken = await loginAs('professor', '123456')
+
+    const student = await request(app)
+      .post('/users')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        name: 'To Link',
+        username: 'tolink',
+        password: '123456',
+        role: 'aluno',
+      })
+
+    const before = await request(app)
+      .get(`/users/${student.body.id}`)
+      .set('Authorization', `Bearer ${professorToken}`)
+
+    expect(before.body.isLinked).toBe(false)
+
+    const linked = await request(app)
+      .put(`/users/${student.body.id}`)
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({ linkMyself: true })
+
+    expect(linked.status).toBe(200)
+    expect(linked.body.isLinked).toBe(true)
+
+    const assessment = await request(app)
+      .post('/assessments')
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({
+        studentId: student.body.id,
+        height: 1.75,
+        weight: 70,
+      })
+
+    expect(assessment.status).toBe(201)
+
+    const unlinked = await request(app)
+      .put(`/users/${student.body.id}`)
+      .set('Authorization', `Bearer ${professorToken}`)
+      .send({ linkMyself: false })
+
+    expect(unlinked.status).toBe(200)
+    expect(unlinked.body.isLinked).toBe(false)
+  })
+
+  it('allows admin to set professorIds on students', async () => {
+    const adminToken = await loginAs('admin', 'admin123')
+
+    const professors = await request(app)
+      .get('/users')
+      .query({ limit: 100 })
+      .set('Authorization', `Bearer ${adminToken}`)
+
+    const professor = professors.body.data.find(
+      (user: { role: string; username: string }) =>
+        user.role === 'professor' && user.username === 'professor',
+    )
+
+    const student = await request(app)
+      .post('/users')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        name: 'Admin Linked',
+        username: 'adminlinked',
+        password: '123456',
+        role: 'aluno',
+        professorIds: [professor.id],
+      })
+
+    expect(student.status).toBe(201)
+    expect(student.body.professorIds).toEqual([professor.id])
   })
 
   it('paginates users list for admin', async () => {

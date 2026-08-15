@@ -121,10 +121,13 @@ export function AssessmentsList({ initialData }: AssessmentsListProps) {
     },
   })
 
-  const students = useMemo(
-    () => (usersQuery.data?.data ?? []).filter((user) => user.role === 'aluno'),
-    [usersQuery.data],
-  )
+  const students = useMemo(() => {
+    const all = (usersQuery.data?.data ?? []).filter((user) => user.role === 'aluno')
+    if (isProfessor) {
+      return all.filter((user) => user.isLinked)
+    }
+    return all
+  }, [usersQuery.data, isProfessor])
 
   const evaluators = useMemo(
     () =>
@@ -356,16 +359,19 @@ export function AssessmentsList({ initialData }: AssessmentsListProps) {
                   {canManage ? (
                     <Table.Cell>
                       <HStack justify="flex-end" gap={2}>
-                        <Button
-                          asChild
-                          size="xs"
-                          variant="outline"
-                          colorPalette="brand"
-                        >
-                          <Link href={`/assessments/${assessment.id}/edit`}>
-                            Editar
-                          </Link>
-                        </Button>
+                        {(isAdmin ||
+                          assessment.evaluator.id === currentUser?.id) ? (
+                          <Button
+                            asChild
+                            size="xs"
+                            variant="outline"
+                            colorPalette="brand"
+                          >
+                            <Link href={`/assessments/${assessment.id}/edit`}>
+                              Editar
+                            </Link>
+                          </Button>
+                        ) : null}
                         {isAdmin ? (
                           <Button
                             size="xs"

@@ -10,7 +10,11 @@
     "dev:api": "npm run dev -w @imc/api",
     "dev:web": "npm run dev -w @imc/web",
     "build": "npm run build -w @imc/shared && npm run build -w @imc/api && npm run build -w @imc/web",
-    "test": "npm run test -w @imc/shared && npm run test -w @imc/api && npm run test -w @imc/web"
+    "test": "npm run test -w @imc/shared && npm run test -w @imc/api && npm run test -w @imc/web",
+    "test:load:smoke": "k6 run k6/smoke.js",
+    "test:load": "k6 run k6/load.js",
+    "test:load:login": "k6 run k6/login-burst.js",
+    "test:load:sessions": "k6 run k6/load-multi-session.js"
   },
   "keywords": [],
   "author": "",

@@ -6,6 +6,10 @@ import { AppError } from '../errors/app-error'
 import { LoginInput, RefreshTokenInput } from '../schemas/login-schema'
 import { TokenService } from './token-service'
 
+/** bcrypt hash so missing users still pay compare time on login. */
+const DUMMY_PASSWORD_HASH =
+  '$2b$10$jRJZTL4Xg4NAPmWXHmhTtuZIR56IcOnIGAbcCCPANmb48O2Sh4v8S'
+
 export class LoginService {
   private users = AppDataSource.getRepository(User)
   private tokenService = new TokenService()
@@ -13,17 +17,16 @@ export class LoginService {
   async login({ username, password }: LoginInput) {
     const user = await this.users.findOne({ where: { usuario: username } })
 
-    if (!user) {
-      throw new AppError('INVALID_CREDENTIALS', 401, 'Invalid username or password')
-    }
+    const passwordMatches = await bcrypt.compare(
+      password,
+      user?.senha ?? DUMMY_PASSWORD_HASH,
+    )
 
-    if (user.situacao === UserSituacao.INATIVO) {
-      throw new AppError('INACTIVE_USER', 403, 'User is inactive')
-    }
-
-    const passwordMatches = await bcrypt.compare(password, user.senha)
-
-    if (!passwordMatches) {
+    if (
+      !user ||
+      !passwordMatches ||
+      user.situacao === UserSituacao.INATIVO
+    ) {
       throw new AppError('INVALID_CREDENTIALS', 401, 'Invalid username or password')
     }
 

@@ -57,7 +57,17 @@ describe('Login', () => {
     expect(response.body.code).toBe('INVALID_CREDENTIALS')
   })
 
-  it('rejects inactive users', async () => {
+  it('rejects unknown usernames with the same credentials error', async () => {
+    const response = await request(app).post('/login').send({
+      username: 'missing-user',
+      password: '123456',
+    })
+
+    expect(response.status).toBe(401)
+    expect(response.body.code).toBe('INVALID_CREDENTIALS')
+  })
+
+  it('rejects inactive users without revealing account status', async () => {
     await createUser({
       name: 'Inactive',
       username: 'inactive',
@@ -71,8 +81,8 @@ describe('Login', () => {
       password: '123456',
     })
 
-    expect(response.status).toBe(403)
-    expect(response.body.code).toBe('INACTIVE_USER')
+    expect(response.status).toBe(401)
+    expect(response.body.code).toBe('INVALID_CREDENTIALS')
   })
 
   it('stores only the hash of the refresh token in the database', async () => {

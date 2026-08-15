@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm'
@@ -31,6 +32,7 @@ export class User {
   @Column({ type: 'varchar', length: 255 })
   senha: string
 
+  @Index('IDX_usuario_perfil')
   @Column({ type: 'varchar', length: 20 })
   perfil: UserPerfil
 

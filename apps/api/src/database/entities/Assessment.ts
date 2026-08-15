@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -25,6 +26,7 @@ export class Assessment {
   @Column({ type: 'varchar', length: 30 })
   classificacao: string
 
+  @Index('IDX_avaliacao_imc_id_usuario_avaliacao')
   @Column({ name: 'id_usuario_avaliacao', type: 'varchar' })
   idUsuarioAvaliacao: string
 
@@ -32,6 +34,7 @@ export class Assessment {
   @JoinColumn({ name: 'id_usuario_avaliacao' })
   usuarioAvaliacao: User
 
+  @Index('IDX_avaliacao_imc_id_usuario_aluno')
   @Column({ name: 'id_usuario_aluno', type: 'varchar' })
   idUsuarioAluno: string
 

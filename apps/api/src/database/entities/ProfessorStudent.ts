@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -22,6 +23,7 @@ export class ProfessorStudent {
   @JoinColumn({ name: 'id_professor' })
   professor: User
 
+  @Index('IDX_professor_aluno_id_aluno')
   @Column({ name: 'id_aluno', type: 'varchar' })
   idAluno: string
 

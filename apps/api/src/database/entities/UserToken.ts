@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -16,6 +17,7 @@ export class UserToken {
   @Column({ name: 'refresh_token', type: 'varchar', length: 255, unique: true })
   tokenHash: string
 
+  @Index('IDX_usuario_token_id_usuario')
   @Column({ name: 'id_usuario', type: 'varchar' })
   userId: string
 

@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { assessmentRoutes } from './assessment-routes'
+import { auditLogRoutes } from './audit-log-routes'
 import { loginRoutes } from './login-routes'
 import { userRoutes } from './user-routes'
 
@@ -15,5 +16,6 @@ routes.get('/', (_req, res) => {
 routes.use('/login', loginRoutes)
 routes.use('/users', userRoutes)
 routes.use('/assessments', assessmentRoutes)
+routes.use('/audit-logs', auditLogRoutes)
 
 export { routes }

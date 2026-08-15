@@ -33,6 +33,7 @@ export function AppShell({ children, title = 'Painel' }: AppShellProps) {
   }
 
   const canManageUsers = user?.role === 'admin' || user?.role === 'professor'
+  const isAdmin = user?.role === 'admin'
 
   return (
     <Box minH="100vh" bg="brand.subtle">
@@ -78,6 +79,17 @@ export function AppShell({ children, title = 'Painel' }: AppShellProps) {
                 >
                   Avaliações
                 </NavItem>
+                {isAdmin ? (
+                  <NavItem
+                    href="/audit-logs"
+                    active={
+                      pathname === '/audit-logs' ||
+                      pathname.startsWith('/audit-logs/')
+                    }
+                  >
+                    Auditoria
+                  </NavItem>
+                ) : null}
               </HStack>
 
               <Button

@@ -16,6 +16,7 @@ import {
 import { toTypeOrmOrder } from '../schemas/sort-schema'
 import { CurrentUser } from '../types/current-user'
 import { LoginService } from './login-service'
+import { AuditService } from './audit-service'
 import { ProfessorStudentService } from './professor-student-service'
 import { TokenService } from './token-service'
 
@@ -58,6 +59,7 @@ export class UserService {
   private loginService = new LoginService()
   private tokenService = new TokenService()
   private professorStudents = new ProfessorStudentService()
+  private auditService = new AuditService()
 
   async list(currentUser: CurrentUser, query: ListUsersQuery) {
     const { page, limit, sortBy, sortOrder } = query
@@ -178,10 +180,43 @@ export class UserService {
     if (user.perfil === UserPerfil.ALUNO) {
       if (currentUser.role === UserPerfil.PROFESSOR) {
         await this.professorStudents.addLink(currentUser.id, user.id)
+        await this.auditService.record({
+          actorId: currentUser.id,
+          action: 'professor_student.link',
+          entity: 'professor_student',
+          entityId: user.id,
+          metadata: {
+            professorId: currentUser.id,
+            studentId: user.id,
+          },
+        })
       } else if (data.professorIds) {
         await this.professorStudents.setLinksForStudent(user.id, data.professorIds)
+        await this.auditService.record({
+          actorId: currentUser.id,
+          action: 'professor_student.set_links',
+          entity: 'professor_student',
+          entityId: user.id,
+          metadata: {
+            studentId: user.id,
+            professorIds: data.professorIds,
+          },
+        })
       }
     }
+
+    await this.auditService.record({
+      actorId: currentUser.id,
+      action: 'user.create',
+      entity: 'user',
+      entityId: user.id,
+      metadata: {
+        name: user.nome,
+        username: user.usuario,
+        role: user.perfil,
+        status: user.situacao,
+      },
+    })
 
     return this.toDetailedUser(currentUser, user)
   }
@@ -205,6 +240,13 @@ export class UserService {
       }
     }
 
+    const before = {
+      name: user.nome,
+      username: user.usuario,
+      role: user.perfil,
+      status: user.situacao,
+    }
+
     if (data.username && data.username !== user.usuario) {
       const existing = await this.users.findOne({ where: { usuario: data.username } })
       if (existing) {
@@ -216,6 +258,7 @@ export class UserService {
     if (data.name) user.nome = data.name
     if (data.role) user.perfil = data.role as UserPerfil
     if (data.status) user.situacao = data.status as UserSituacao
+    const passwordChanged = Boolean(data.password)
     if (data.password) {
       user.senha = await this.loginService.hashPassword(data.password)
     }
@@ -231,6 +274,41 @@ export class UserService {
     } else if (data.professorIds !== undefined || data.linkMyself !== undefined) {
       await this.professorStudents.deleteAllForUser(user.id)
     }
+
+    const after = {
+      name: user.nome,
+      username: user.usuario,
+      role: user.perfil,
+      status: user.situacao,
+    }
+
+    const changes: Record<string, unknown> = {}
+
+    for (const key of ['name', 'username', 'role', 'status'] as const) {
+      if (before[key] !== after[key]) {
+        changes[key] = { from: before[key], to: after[key] }
+      }
+    }
+
+    if (passwordChanged) {
+      changes.passwordChanged = true
+    }
+
+    if (data.linkMyself !== undefined) {
+      changes.linkMyself = data.linkMyself
+    }
+
+    if (data.professorIds !== undefined) {
+      changes.professorIds = data.professorIds
+    }
+
+    await this.auditService.record({
+      actorId: currentUser.id,
+      action: 'user.update',
+      entity: 'user',
+      entityId: user.id,
+      metadata: { changes },
+    })
 
     return this.toDetailedUser(currentUser, user)
   }
@@ -257,6 +335,20 @@ export class UserService {
     }
 
     await this.professorStudents.deleteAllForUser(id)
+
+    await this.auditService.record({
+      actorId: currentUser.id,
+      action: 'user.delete',
+      entity: 'user',
+      entityId: user.id,
+      metadata: {
+        name: user.nome,
+        username: user.usuario,
+        role: user.perfil,
+        status: user.situacao,
+      },
+    })
+
     await this.users.remove(user)
   }
 
@@ -267,6 +359,16 @@ export class UserService {
   ) {
     if (currentUser.role === UserPerfil.ADMIN && data.professorIds !== undefined) {
       await this.professorStudents.setLinksForStudent(studentId, data.professorIds)
+      await this.auditService.record({
+        actorId: currentUser.id,
+        action: 'professor_student.set_links',
+        entity: 'professor_student',
+        entityId: studentId,
+        metadata: {
+          studentId,
+          professorIds: data.professorIds,
+        },
+      })
       return
     }
 
@@ -281,8 +383,28 @@ export class UserService {
 
       if (data.linkMyself) {
         await this.professorStudents.addLink(currentUser.id, studentId)
+        await this.auditService.record({
+          actorId: currentUser.id,
+          action: 'professor_student.link',
+          entity: 'professor_student',
+          entityId: studentId,
+          metadata: {
+            professorId: currentUser.id,
+            studentId,
+          },
+        })
       } else {
         await this.professorStudents.removeLink(currentUser.id, studentId)
+        await this.auditService.record({
+          actorId: currentUser.id,
+          action: 'professor_student.unlink',
+          entity: 'professor_student',
+          entityId: studentId,
+          metadata: {
+            professorId: currentUser.id,
+            studentId,
+          },
+        })
       }
     }
   }

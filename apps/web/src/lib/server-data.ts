@@ -1,5 +1,6 @@
 import { serverFetch } from '@/lib/server-api'
 import type { Assessment } from '@/types/assessment'
+import type { AuditLog } from '@/types/audit-log'
 import type { ListUser } from '@/types/user'
 import type { PaginatedResponse } from '@/types/pagination'
 import {
@@ -11,6 +12,7 @@ import type { ListUsersParams, UserSortBy } from '@/lib/users-api'
 import type { AssessmentSortBy } from '@/lib/assessments-api'
 import type { ListAssessmentsFilters } from '@/types/assessment'
 import type { PaginationParams, SortParams } from '@/types/pagination'
+import type { ListAuditLogsParams } from '@/lib/audit-logs-api'
 
 export async function listUsersServer(params: ListUsersParams = {}) {
   return serverFetch<PaginatedResponse<ListUser>>('/users', {
@@ -48,6 +50,18 @@ export async function listAssessmentsServer(
 
 export async function getAssessmentServer(id: string) {
   return serverFetch<Assessment>(`/assessments/${id}`)
+}
+
+export async function listAuditLogsServer(params: ListAuditLogsParams = {}) {
+  return serverFetch<PaginatedResponse<AuditLog>>('/audit-logs', {
+    searchParams: {
+      page: String(params.page ?? 1),
+      limit: String(params.limit ?? DEFAULT_PAGE_SIZE),
+      action: params.action,
+      entity: params.entity,
+      actorUsername: params.actorUsername,
+    },
+  })
 }
 
 export type { UserSortBy, AssessmentSortBy }

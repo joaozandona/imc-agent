@@ -17,6 +17,7 @@ import {
 import { SortOrder, toTypeOrmOrder } from '../schemas/sort-schema'
 import { CurrentUser } from '../types/current-user'
 import { ProfessorStudentService } from './professor-student-service'
+import { AuditService } from './audit-service'
 
 const assessmentRelations = {
   usuarioAluno: true,
@@ -86,6 +87,7 @@ export class AssessmentService {
   private assessments = AppDataSource.getRepository(Assessment)
   private users = AppDataSource.getRepository(User)
   private professorStudents = new ProfessorStudentService()
+  private auditService = new AuditService()
 
   private async findOneWithRelations(id: string) {
     return this.assessments.findOne({
@@ -223,6 +225,21 @@ export class AssessmentService {
     })
 
     await this.assessments.save(assessment)
+
+    await this.auditService.record({
+      actorId: currentUser.id,
+      action: 'assessment.create',
+      entity: 'assessment',
+      entityId: assessment.id,
+      metadata: {
+        studentId: student.id,
+        height: data.height,
+        weight: data.weight,
+        imc,
+        classification,
+      },
+    })
+
     return toSavedAssessment(assessment)
   }
 
@@ -245,6 +262,21 @@ export class AssessmentService {
     assessment.classificacao = classifyImc(imc)
 
     await this.assessments.save(assessment)
+
+    await this.auditService.record({
+      actorId: currentUser.id,
+      action: 'assessment.update',
+      entity: 'assessment',
+      entityId: assessment.id,
+      metadata: {
+        studentId: assessment.idUsuarioAluno,
+        height,
+        weight,
+        imc,
+        classification: assessment.classificacao,
+      },
+    })
+
     return toSavedAssessment(assessment)
   }
 
@@ -258,6 +290,21 @@ export class AssessmentService {
     if (!assessment) {
       throw new AppError('ASSESSMENT_NOT_FOUND', 404, 'Assessment not found')
     }
+
+    await this.auditService.record({
+      actorId: currentUser.id,
+      action: 'assessment.delete',
+      entity: 'assessment',
+      entityId: assessment.id,
+      metadata: {
+        studentId: assessment.idUsuarioAluno,
+        evaluatorId: assessment.idUsuarioAvaliacao,
+        height: Number(assessment.altura),
+        weight: Number(assessment.peso),
+        imc: Number(assessment.imc),
+        classification: assessment.classificacao,
+      },
+    })
 
     await this.assessments.remove(assessment)
   }

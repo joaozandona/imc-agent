@@ -5,23 +5,13 @@ import {
   USER_COOKIE,
   getApiBaseUrl,
 } from '@/lib/auth-cookies'
+import { isAllowedProxyPath } from '@/lib/backend-proxy-allowlist'
 import type { User } from '@/types/user'
-
-const ALLOWED_PROXY_ROOTS = new Set(['users', 'assessments', 'audit-logs'])
 
 type RefreshApiResponse = {
   accessToken: string
   refreshToken: string
   user: User
-}
-
-function isAllowedProxyPath(path: string[]) {
-  if (path.length === 0) return false
-  if (path.some((segment) => !segment || segment === '.' || segment === '..')) {
-    return false
-  }
-
-  return ALLOWED_PROXY_ROOTS.has(path[0])
 }
 
 async function refreshTokens(refreshToken: string) {

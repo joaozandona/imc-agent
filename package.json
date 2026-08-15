@@ -10,7 +10,7 @@
     "dev:api": "npm run dev -w @imc/api",
     "dev:web": "npm run dev -w @imc/web",
     "build": "npm run build -w @imc/shared && npm run build -w @imc/api && npm run build -w @imc/web",
-    "test": "npm run test -w @imc/shared && npm run test -w @imc/api"
+    "test": "npm run test -w @imc/shared && npm run test -w @imc/api && npm run test -w @imc/web"
   },
   "keywords": [],
   "author": "",

@@ -74,6 +74,11 @@ export async function serverFetch<T>(
 
   if (response.status === 403) {
     const data = await response.json().catch(() => null)
+
+    if (data?.code === 'INACTIVE_USER') {
+      redirectToLogin()
+    }
+
     throw new ServerApiError(
       response.status,
       data?.message ?? 'Forbidden',

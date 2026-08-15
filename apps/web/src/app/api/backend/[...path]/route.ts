@@ -117,6 +117,21 @@ async function proxyRequest(
           upstream.headers.get('content-type') || 'application/json',
       },
     })
+
+    if (upstream.status === 403) {
+      try {
+        const payload = JSON.parse(new TextDecoder().decode(responseBody)) as {
+          code?: string
+        }
+        if (payload.code === 'INACTIVE_USER') {
+          response.cookies.delete(ACCESS_COOKIE)
+          response.cookies.delete(REFRESH_COOKIE)
+          response.cookies.delete(USER_COOKIE)
+          return response
+        }
+      } catch {}
+    }
+
     applyAuthCookies(response, refreshed)
     return response
   }
@@ -136,13 +151,30 @@ async function proxyRequest(
   }
 
   const responseBody = await upstream.arrayBuffer()
-  return new NextResponse(responseBody, {
+  const response = new NextResponse(responseBody, {
     status: upstream.status,
     headers: {
       'content-type':
         upstream.headers.get('content-type') || 'application/json',
     },
   })
+
+  if (upstream.status === 403) {
+    try {
+      const payload = JSON.parse(new TextDecoder().decode(responseBody)) as {
+        code?: string
+      }
+      if (payload.code === 'INACTIVE_USER') {
+        response.cookies.delete(ACCESS_COOKIE)
+        response.cookies.delete(REFRESH_COOKIE)
+        response.cookies.delete(USER_COOKIE)
+      }
+    } catch {
+      // Keep the upstream body as-is when it is not JSON.
+    }
+  }
+
+  return response
 }
 
 type RouteContext = {

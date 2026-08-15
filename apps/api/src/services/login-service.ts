@@ -87,7 +87,9 @@ export class LoginService {
       {
         sub: user.id,
         username: user.usuario,
+        name: user.nome,
         role: user.perfil,
+        status: user.situacao,
       },
       secret,
       signOptions,

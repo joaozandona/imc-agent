@@ -37,6 +37,7 @@ export async function setAuthCookies(payload: AuthCookiePayload) {
 
   jar.set(ACCESS_COOKIE, payload.accessToken, baseCookieOptions(accessMaxAge))
   jar.set(REFRESH_COOKIE, payload.refreshToken, baseCookieOptions(refreshMaxAge))
+  // Profile mirror only. SSR/authz identity must come from the verified access JWT.
   jar.set(USER_COOKIE, JSON.stringify(payload.user), baseCookieOptions(refreshMaxAge))
 }
 
@@ -55,18 +56,6 @@ export async function getAccessTokenFromCookies() {
 export async function getRefreshTokenFromCookies() {
   const jar = await cookies()
   return jar.get(REFRESH_COOKIE)?.value ?? null
-}
-
-export async function getUserFromCookies(): Promise<User | null> {
-  const jar = await cookies()
-  const raw = jar.get(USER_COOKIE)?.value
-  if (!raw) return null
-
-  try {
-    return JSON.parse(raw) as User
-  } catch {
-    return null
-  }
 }
 
 export function getApiBaseUrl() {

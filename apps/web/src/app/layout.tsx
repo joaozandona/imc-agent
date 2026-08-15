@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { getUserFromCookies } from '@/lib/auth-cookies'
+import { getSessionUser } from '@/lib/session'
 import { AppProviders } from '@/providers/app-providers'
 import './globals.css'
 
@@ -13,7 +13,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const initialUser = await getUserFromCookies()
+  const initialUser = await getSessionUser()
 
   return (
     <html lang="pt-BR" suppressHydrationWarning>

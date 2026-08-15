@@ -1,10 +1,9 @@
-import { headers } from 'next/headers'
-import { redirect } from 'next/navigation'
 import {
   getAccessTokenFromCookies,
   getApiBaseUrl,
   getRefreshTokenFromCookies,
 } from '@/lib/auth-cookies'
+import { redirectToLogin, redirectToSessionRefresh } from '@/lib/auth-redirects'
 
 export class ServerApiError extends Error {
   status: number
@@ -17,19 +16,6 @@ export class ServerApiError extends Error {
   }
 }
 
-async function redirectToRefresh(): Promise<never> {
-  const headerStore = await headers()
-  const pathname = headerStore.get('x-pathname') || '/'
-  const search = headerStore.get('x-search') || ''
-  const next = `${pathname}${search}`
-
-  redirect(`/api/auth/refresh?next=${encodeURIComponent(next)}`)
-}
-
-function redirectToLogin(): never {
-  redirect('/api/auth/logout?next=/login')
-}
-
 export async function serverFetch<T>(
   path: string,
   init?: RequestInit & { searchParams?: Record<string, string | undefined> },
@@ -39,7 +25,7 @@ export async function serverFetch<T>(
 
   if (!accessToken) {
     if (refreshToken) {
-      await redirectToRefresh()
+      await redirectToSessionRefresh()
     }
     redirectToLogin()
   }
@@ -67,7 +53,7 @@ export async function serverFetch<T>(
 
   if (response.status === 401) {
     if (refreshToken) {
-      await redirectToRefresh()
+      await redirectToSessionRefresh()
     }
     redirectToLogin()
   }

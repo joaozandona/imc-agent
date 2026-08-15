@@ -7,7 +7,9 @@ import { TokenService } from '../services/token-service'
 type TokenPayload = {
   sub: string
   username: string
+  name?: string
   role: string
+  status?: string
 }
 
 export async function ensureAuthenticated(
